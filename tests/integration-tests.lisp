@@ -17,7 +17,7 @@
   "Test that define-builtin-tools registers all expected tools"
   (let* ((server (cl-mcp:make-server :name "test" :version "0.1.0"))
          (session (cl-mcp-server.session:make-session))
-         (registry (cl-mcp::mcp-server-tools server)))
+         (registry (cl-mcp:mcp-server-tools server)))
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session))
     (let ((tools (cl-mcp.tools:list-tools registry)))

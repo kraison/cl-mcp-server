@@ -7,6 +7,13 @@
 ;;; Tool Definitions
 ;;; ==========================================================================
 
+(defun string-to-keyword (string valid-keywords)
+  "Convert STRING to a keyword if it matches one of VALID-KEYWORDS.
+Returns the matching keyword or nil. Comparison is case-insensitive."
+  (find string valid-keywords
+        :test #'string-equal
+        :key #'symbol-name))
+
 (defun define-builtin-tools (server session)
   "Register the built-in REPL tools on SERVER, closing over SESSION."
 
@@ -59,7 +66,7 @@
               (let ((type-filter (cdr (assoc "type" args :test #'string=))))
                 (format-definitions session
                                     :type (when type-filter
-                                            (intern (string-upcase type-filter) :keyword))))))
+                                            (string-to-keyword type-filter '(:function :variable :macro)))))))
 
   ;; reset-session: Reset the session to a fresh state
   (cl-mcp:register-tool server "reset-session"
@@ -156,7 +163,7 @@
                      (pkg-name (cdr (assoc "package" args :test #'string=)))
                      (type-str (cdr (assoc "type" args :test #'string=)))
                      (type-kw (when type-str
-                                (intern (string-upcase type-str) :keyword))))
+                                (string-to-keyword type-str '(:function :macro :variable :class :generic-function)))))
                 (if (and pkg-name (not (find-package (string-upcase pkg-name))))
                     (format nil "Package ~A not found" pkg-name)
                     (let ((results (introspect-apropos pattern
@@ -524,13 +531,15 @@
               (let* ((code (cdr (assoc "code" args :test #'string=)))
                      (mode-str (cdr (assoc "mode" args :test #'string=)))
                      (mode (if mode-str
-                               (intern (string-upcase mode-str) :keyword)
+                               (or (string-to-keyword mode-str '(:cpu :time :alloc))
+                                   :cpu)
                                :cpu))
                      (max-samples (or (cdr (assoc "max-samples" args :test #'string=)) 1000))
                      (sample-interval (or (cdr (assoc "sample-interval" args :test #'string=)) 0.01))
                      (report-type-str (cdr (assoc "report-type" args :test #'string=)))
                      (report-type (if report-type-str
-                                      (intern (string-upcase report-type-str) :keyword)
+                                      (or (string-to-keyword report-type-str '(:flat :graph))
+                                          :flat)
                                       :flat))
                      (package (or (cdr (assoc "package" args :test #'string=)) "CL-USER")))
                 (handler-case
@@ -559,7 +568,7 @@
                                             ("description" . "Package name - profile all functions in this package (for 'start' action)"))))))
    :handler (lambda (args)
               (let* ((action-str (cdr (assoc "action" args :test #'string=)))
-                     (action (intern (string-upcase action-str) :keyword))
+                     (action (string-to-keyword action-str '(:start :stop :report :reset :status)))
                      (functions (cdr (assoc "functions" args :test #'string=)))
                      (package (cdr (assoc "package" args :test #'string=))))
                 (handler-case

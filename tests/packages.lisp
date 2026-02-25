@@ -27,7 +27,7 @@ Returns (values server session)."
 
 (defun test-server-registry (server)
   "Get the tool registry from a server."
-  (cl-mcp::mcp-server-tools server))
+  (cl-mcp:mcp-server-tools server))
 
 (defun call-test-tool (server name args)
   "Call a tool on SERVER and return the text content as a string.
