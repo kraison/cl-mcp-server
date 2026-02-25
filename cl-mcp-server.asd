@@ -7,9 +7,9 @@
   :license "MIT"
   :version "0.3.0"
   :serial t
-  :depends-on (#:yason           ; JSON parsing
-               #:alexandria      ; Utilities
-               #:bordeaux-threads ; Threading (future)
+  :depends-on (#:cl-mcp            ; MCP protocol framework
+               #:alexandria        ; Utilities
+               #:bordeaux-threads  ; Threading (future)
                #:trivial-backtrace) ; Portable backtraces
   :components ((:module "src"
                 :components
