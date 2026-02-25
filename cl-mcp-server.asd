@@ -33,17 +33,13 @@
   :components ((:module "tests"
                 :components
                 ((:file "packages")
-                 (:file "conditions-tests")
                  (:file "error-format-tests")
-                 (:file "json-rpc-tests")
-                 (:file "transport-tests")
                  (:file "session-tests")
                  (:file "evaluator-tests")
                  (:file "tools-tests")
                  (:file "introspection-tests")
                  (:file "asdf-tools-tests")
                  (:file "profiling-tools-tests")
-                 (:file "integration-tests")
-                 (:file "encoding-tests"))))
+                 (:file "integration-tests"))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :cl-mcp-server-tests)))

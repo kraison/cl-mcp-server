@@ -170,5 +170,5 @@
 (test switch-package-signals-error-for-nonexistent
   "switch-package signals error for nonexistent package"
   (let ((session (cl-mcp-server.session:make-session)))
-    (signals cl-mcp-server.conditions:invalid-params
+    (signals cl-mcp.conditions:invalid-params
       (cl-mcp-server.session:switch-package session :nonexistent-package-xyz))))

@@ -73,7 +73,7 @@
   (let ((info (cl-mcp-server.asdf-tools:introspect-system-dependencies "cl-mcp-server")))
     (is (string= "cl-mcp-server" (getf info :system)))
     (is (not (null (getf info :direct))))
-    (is (member "yason" (getf info :direct) :test #'string=))))
+    (is (member "cl-mcp" (getf info :direct) :test #'string=))))
 
 (test introspect-system-dependencies-transitive
   "introspect-system-dependencies returns transitive dependencies"

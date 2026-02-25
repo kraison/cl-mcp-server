@@ -143,16 +143,24 @@
 
 (test profile-code-tool-registered
   "profile-code tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "profile-code")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "profile-code"))))))
 
 (test profile-functions-tool-registered
   "profile-functions tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "profile-functions")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "profile-functions"))))))
 
 (test memory-report-tool-registered
   "memory-report tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "memory-report")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "memory-report"))))))
 
 (test allocation-profile-tool-registered
   "allocation-profile tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "allocation-profile")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "allocation-profile"))))))
