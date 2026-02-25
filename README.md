@@ -31,7 +31,7 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 ### For Claude Users
 
 - **Persistent REPL**: Define functions once, use them repeatedly in the same session
-- **28 tools**: full-on REPL power for evaluation, introspection, profiling, and more
+- **36 tools**: full-on REPL power for evaluation, introspection, profiling, and more
 - **Rich Error Reporting**: Get detailed backtraces and condition information when things go wrong
 - **Stream Separation**: Clearly distinguish between return values, printed output, and warnings
 - **Safe Execution**: Server never crashes—all user code errors are caught and reported
@@ -126,7 +126,7 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### For Contributors
 
-- **[AGENT.md](AGENT.md)** - Contributor guidelines, build commands, code conventions
+- **[Dev Skill](.claude/skills/dev/SKILL.md)** - Contributor guidelines, build commands, code conventions
 - **[canon/INDEX.md](canon/INDEX.md)** - Navigate formal specifications
 - **[Architecture](docs/explanation/architecture.md)** - System design and rationale
 
@@ -150,7 +150,7 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### Available Tools
 
-CL-MCP-Server provides **28 tools** organized into categories:
+CL-MCP-Server provides **36 tools** organized into categories:
 
 #### Code Evaluation & Execution
 - **`evaluate-lisp`** - Execute Common Lisp code in persistent REPL session
@@ -211,19 +211,24 @@ See [Tools Reference](docs/reference/) for detailed documentation.
                │ JSON-RPC over stdio
                │
 ┌──────────────▼───────────────────────┐
-│         CL-MCP-Server                 │
-│  ┌────────────────────────────────┐   │
-│  │  Protocol Layer (JSON-RPC)     │   │
-│  └──────────────┬─────────────────┘   │
-│                 │                     │
-│  ┌──────────────▼─────────────────┐  │
-│  │  Tool Layer (evaluate-lisp)     │  │
-│  └──────────────┬──────────────────┘  │
-│                 │                     │
+│  cl-mcp  (external library)          │
+│  • JSON-RPC 2.0 framing              │
+│  • stdio transport                   │
+│  • MCP handshake + dispatch          │
+│  • Per-server tool registry          │
+└──────────────┬───────────────────────┘
+               │ register-tool / run-server
+               │
+┌──────────────▼───────────────────────┐
+│         CL-MCP-Server                │
+│  ┌────────────────────────────────┐  │
+│  │  Tool Layer (28+ REPL tools)   │  │
+│  └──────────────┬─────────────────┘  │
+│                 │                    │
 │  ┌──────────────▼─────────────────┐  │
 │  │  Evaluator (with error capture) │  │
 │  └──────────────┬──────────────────┘  │
-│                 │                     │
+│                 │                    │
 │  ┌──────────────▼─────────────────┐  │
 │  │  Session (persistent state)     │  │
 │  └─────────────────────────────────┘  │
@@ -246,13 +251,13 @@ sbcl --load cl-mcp-server.asd \
 
 **Version**: 0.3.0
 
-**Status**: Alpha (human testing required). The core functionality is working and tested with 23 tools available. The API may change as we gather user feedback.
+**Status**: Alpha (human testing required). The core functionality is working and tested with 36 tools available. The API may change as we gather user feedback.
 
 ## Contributing
 
 Contributions are welcome! Please:
 
-1. Read [AGENT.md](AGENT.md) for contributor guidelines
+1. Read [Dev Skill](.claude/skills/dev/SKILL.md) for contributor guidelines
 2. Review [canon/](canon/) for formal specifications
 3. Check open issues for tasks
 4. Submit pull requests with tests
@@ -267,6 +272,15 @@ MIT License
 
 ## Changelog
 
+### Version 0.3.1 (2026-02-25)
+
+**Protocol Layer Extraction**
+
+- Extracted JSON-RPC, stdio transport, and tool registry into standalone `cl-mcp` library
+- `server.lisp` is now a thin 12-line glue: `cl-mcp:make-server` → `define-builtin-tools` → `cl-mcp:run-server`
+- `cl-mcp-server.conditions` re-exports from `cl-mcp.conditions` for backward compatibility
+- No functional changes to tools or REPL behavior
+
 ### Version 0.3.0 (2026-02-05)
 
 **[Telos](https://github.com/quasi/telos) Intent Introspection**
@@ -279,7 +293,7 @@ MIT License
   - `telos-intent-chain` - Trace intent hierarchy from code to root feature
   - `telos-feature-members` - List all functions and classes in a feature
 
-**Total: 28 tools** (up from 23 in v0.2.0)
+**Total: 28 tools** (up from 23 in v0.2.0 — note: actual count is 36 including configure-limits, who-calls, who-references, find-system-file, telos-feature-decisions, telos-list-decisions, load-system, get-usage-guide)
 
 **Features:**
 - Graceful degradation when telos is not loaded
@@ -333,4 +347,4 @@ MIT License
 
 **Questions?** → [Documentation](docs/README.md)
 
-**Want to contribute?** → [AGENT.md](AGENT.md)
+**Want to contribute?** → [Dev Skill](.claude/skills/dev/SKILL.md)

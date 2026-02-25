@@ -1,34 +1,13 @@
-# CLAUDE.md
+# cl-mcp-server
 
-Instructions for Claude Code (claude.ai/code) when working with this repository.
+## For contributors working on this project
+Invoke the dev skill: `.claude/skills/dev/SKILL.md`
 
-**See [AGENT.md](AGENT.md) for full contributing guidelines**, including:
-- Build and test commands
-- Code conventions and naming
-- Architecture rules and invariants
-- Protocol conformance requirements
-- Testing strategy
-
-## Quick Reference
-
-```bash
-# Load and run server
-sbcl --load cl-mcp-server.asd \
-     --eval "(ql:quickload :cl-mcp-server)" \
-     --eval "(cl-mcp-server:start)"
-
-# Run tests
-sbcl --load cl-mcp-server.asd \
-     --eval "(ql:quickload :cl-mcp-server/tests)" \
-     --eval "(asdf:test-system :cl-mcp-server)"
-```
+## For agents using the REPL tools
+Invoke the integration skill: `.claude/skills/integration/SKILL.md`
 
 ## Issue Tracking
+`bd ready` — find unblocked work | `bd create "Title" --type task --priority 2` | `bd close <id>`
 
-This project uses **bd (beads)** for issue tracking.
-
-- `bd ready` - Find unblocked work
-- `bd create "Title" --type task --priority 2` - Create issue
-- `bd close <id>` - Complete work
-- `bd sync --flush-only` - Export to JSONL
-
+## Dependencies
+@../opsis/claude.md

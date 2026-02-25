@@ -22,33 +22,54 @@ CL-MCP-Server is a bridge between Claude and a running Common Lisp environment. 
                   │ JSON-RPC 2.0 over stdio
                   ▼
 ┌─────────────────────────────────────────┐
-│         MCP Protocol Layer              │
+│     cl-mcp  (external library)          │
 │  • Message parsing/formatting           │
-│  • Method routing                       │
-│  • Error handling                       │
+│  • stdio transport (stdin/stdout)       │
+│  • Method routing (initialize,          │
+│    tools/list, tools/call)              │
+│  • Per-server tool registry             │
+│  • JSON-RPC error recovery              │
 └─────────────────────────────────────────┘
-                  │
+                  │  register-tool / run-server API
                   ▼
 ┌─────────────────────────────────────────┐
-│         Session Management              │
-│  • Persistent *package* context         │
-│  • State tracking                       │
-└─────────────────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────┐
-│         Code Evaluator                  │
-│  • Read Lisp forms                      │
-│  • Capture streams (stdout/stderr)      │
-│  • Evaluate safely                      │
-│  • Handle conditions                    │
-│  • Format results                       │
+│     cl-mcp-server  (this project)       │
+│  ┌──────────────────────────────────┐   │
+│  │  Tool Layer (28+ REPL tools)     │   │
+│  │  • Registered via cl-mcp:        │   │
+│  │    register-tool                 │   │
+│  └──────────────────────────────────┘   │
+│                  │                      │
+│  ┌───────────────▼──────────────────┐   │
+│  │  Session Management              │   │
+│  │  • Persistent *package* context  │   │
+│  │  • State tracking                │   │
+│  └───────────────────────────────── ┘   │
+│                  │                      │
+│  ┌───────────────▼──────────────────┐   │
+│  │  Code Evaluator                  │   │
+│  │  • Read Lisp forms               │   │
+│  │  • Capture streams               │   │
+│  │  • Evaluate safely               │   │
+│  │  • Handle conditions             │   │
+│  └──────────────────────────────────┘   │
 └─────────────────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────┐
 │      Common Lisp Runtime (SBCL)         │
 └─────────────────────────────────────────┘
+```
+
+**Key**: `cl-mcp` (at `../cl-mcp`) is an independent reusable library that handles everything below the application layer. CL-MCP-Server is the consumer — `start` reduces to three calls:
+
+```lisp
+(defun start ()
+  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.3.0"))
+        (session (make-session)))
+    (with-session (session)
+      (cl-mcp-server.tools:define-builtin-tools server session)
+      (cl-mcp:run-server server))))
 ```
 
 ## Communication Flow
@@ -244,22 +265,17 @@ Let's trace what happens when Claude sends `(+ 1 2)`:
 
 ### Step 3: Route to Handler
 
-```lisp
-;; Method routing
-(case method
-  ("tools/call" (handle-tools-call params))
-  ...)
-```
+`cl-mcp` routes `tools/call` to the registered handler for `"evaluate-lisp"`. This dispatch is handled internally by the library.
 
 ### Step 4: Extract Code
 
+The handler registered in `src/tools.lisp` receives the parsed `arguments` alist:
+
 ```lisp
-;; From params
-(let* ((tool-name (get-param params "name"))
-       (arguments (get-param params "arguments"))
-       (code (get-param arguments "code")))
-  ;; code = "(+ 1 2)"
-  ...)
+:handler (lambda (args)
+           (let ((code (cdr (assoc "code" args :test #'string=))))
+             ;; code = "(+ 1 2)"
+             ...))
 ```
 
 ### Step 5: Evaluate Safely
@@ -472,19 +488,20 @@ Server Shutdown (all state lost)
 
 ### Adding New Tools
 
-The architecture supports multiple MCP tools:
+Register new tools in `src/tools.lisp` via `cl-mcp:register-tool`:
 
 ```lisp
-;; Current
-{"name": "evaluate-lisp", ...}
-
-;; Future possibilities
-{"name": "load-system", ...}
-{"name": "describe-symbol", ...}
-{"name": "search-documentation", ...}
+(cl-mcp:register-tool server "my-new-tool"
+  :description "What this tool does"
+  :schema `(("type" . "object")
+            ("properties" . (("arg1" . (("type" . "string"))))))
+  :handler (lambda (args)
+             ;; Access args as an alist
+             (let ((arg1 (cdr (assoc "arg1" args :test #'string=))))
+               (format nil "Result: ~A" arg1))))
 ```
 
-Each tool would be a new entry in `tools/list` and a new handler in `tools/call`.
+`cl-mcp` handles registration, `tools/list` exposure, and dispatch automatically.
 
 ### Adding Features
 
