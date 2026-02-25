@@ -247,10 +247,10 @@ Returns plist with :original, :expanded, :changed-p."
   (let* ((*package* (etypecase package
                       (package package)
                       (string (or (find-package (string-upcase package))
-                                  (error 'cl-mcp-server.conditions:invalid-params
+                                  (error 'cl-mcp.conditions:invalid-params
                                          :message (format nil "Package ~A not found" package))))
                       (symbol (or (find-package package)
-                                  (error 'cl-mcp-server.conditions:invalid-params
+                                  (error 'cl-mcp.conditions:invalid-params
                                          :message (format nil "Package ~A not found" package))))))
          (form (let ((*read-eval* nil))
                  (read-from-string form-string)))
@@ -286,10 +286,10 @@ Returns plist with :compiled-p :warnings :errors :notes."
   (let* ((pkg (etypecase package
                 (package package)
                 (string (or (find-package (string-upcase package))
-                            (error 'cl-mcp-server.conditions:invalid-params
+                            (error 'cl-mcp.conditions:invalid-params
                                    :message (format nil "Package ~A not found" package))))
                 (symbol (or (find-package package)
-                            (error 'cl-mcp-server.conditions:invalid-params
+                            (error 'cl-mcp.conditions:invalid-params
                                    :message (format nil "Package ~A not found" package))))))
          (*package* pkg)
          (warnings nil)
@@ -469,14 +469,14 @@ Returns a plist with:
   (let* ((class (etypecase class-designator
                   (class class-designator)
                   (symbol (or (find-class class-designator nil)
-                              (error 'cl-mcp-server.conditions:invalid-params
+                              (error 'cl-mcp.conditions:invalid-params
                                      :message (format nil "Class ~A not found" class-designator))))
                   (string (let ((sym (find-symbol (string-upcase class-designator))))
                             (if sym
                                 (or (find-class sym nil)
-                                    (error 'cl-mcp-server.conditions:invalid-params
+                                    (error 'cl-mcp.conditions:invalid-params
                                            :message (format nil "~A is not a class" class-designator)))
-                                (error 'cl-mcp-server.conditions:invalid-params
+                                (error 'cl-mcp.conditions:invalid-params
                                        :message (format nil "Symbol ~A not found" class-designator)))))))
          (name (class-name class)))
     ;; Ensure class is finalized so we can get effective slots
@@ -593,14 +593,14 @@ Returns a list of method info plists."
   (let* ((class (etypecase class-designator
                   (class class-designator)
                   (symbol (or (find-class class-designator nil)
-                              (error 'cl-mcp-server.conditions:invalid-params
+                              (error 'cl-mcp.conditions:invalid-params
                                      :message (format nil "Class ~A not found" class-designator))))
                   (string (let ((sym (find-symbol (string-upcase class-designator))))
                             (if sym
                                 (or (find-class sym nil)
-                                    (error 'cl-mcp-server.conditions:invalid-params
+                                    (error 'cl-mcp.conditions:invalid-params
                                            :message (format nil "~A is not a class" class-designator)))
-                                (error 'cl-mcp-server.conditions:invalid-params
+                                (error 'cl-mcp.conditions:invalid-params
                                        :message (format nil "Symbol ~A not found" class-designator)))))))
          (methods (sb-mop:specializer-direct-methods class)))
     (when include-inherited
@@ -643,11 +643,11 @@ Returns a list of method info plists."
 Returns the symbol or signals an error if not found."
   (let* ((pkg (if package-name
                   (or (find-package (string-upcase package-name))
-                      (error 'cl-mcp-server.conditions:invalid-params
+                      (error 'cl-mcp.conditions:invalid-params
                              :message (format nil "Package ~A not found" package-name)))
                   *package*))
          (sym (find-symbol (string-upcase name) pkg)))
     (unless sym
-      (error 'cl-mcp-server.conditions:invalid-params
+      (error 'cl-mcp.conditions:invalid-params
              :message (format nil "Symbol ~A not found in package ~A" name (package-name pkg))))
     sym))

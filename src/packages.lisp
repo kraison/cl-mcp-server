@@ -59,8 +59,8 @@
   (:use #:cl
         #:cl-mcp-server.session
         #:cl-mcp-server.error-format
-        #:cl-mcp.conditions)
-  (:shadowing-import-from #:cl-mcp.conditions #:parse-error)
+        #:cl-mcp-server.conditions)
+  (:shadowing-import-from #:cl-mcp-server.conditions #:parse-error)
   (:export
    #:evaluate-code
    #:evaluation-result
