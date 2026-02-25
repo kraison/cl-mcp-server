@@ -16,8 +16,6 @@
                 ((:file "packages")
                  (:file "conditions")
                  (:file "error-format")
-                 (:file "json-rpc")
-                 (:file "transport")
                  (:file "session")
                  (:file "evaluator")
                  (:file "introspection")
