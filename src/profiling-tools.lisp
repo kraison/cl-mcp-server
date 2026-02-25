@@ -18,7 +18,7 @@
 MODE can be :CPU, :TIME, or :ALLOC.
 Returns a plist with :result, :report, and profiling metadata."
   (let* ((pkg (or (find-package (string-upcase package))
-                  (error 'cl-mcp-server.conditions:invalid-params
+                  (error 'cl-mcp.conditions:invalid-params
                          :message (format nil "Package ~A not found" package))))
          (*package* pkg)
          (report-string nil)
@@ -205,7 +205,7 @@ If GC-FIRST is true, run garbage collection before reporting."
   "Profile memory allocation in CODE using sb-sprof :alloc mode.
 Returns detailed allocation information."
   (let* ((pkg (or (find-package (string-upcase package))
-                  (error 'cl-mcp-server.conditions:invalid-params
+                  (error 'cl-mcp.conditions:invalid-params
                          :message (format nil "Package ~A not found" package))))
          (*package* pkg)
          (report-string nil)

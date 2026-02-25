@@ -185,23 +185,33 @@
 
 (test describe-symbol-tool-registered
   "describe-symbol tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "describe-symbol")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "describe-symbol"))))))
 
 (test apropos-search-tool-registered
   "apropos-search tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "apropos-search")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "apropos-search"))))))
 
 (test who-calls-tool-registered
   "who-calls tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "who-calls")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "who-calls"))))))
 
 (test who-references-tool-registered
   "who-references tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "who-references")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "who-references"))))))
 
 (test macroexpand-form-tool-registered
   "macroexpand-form tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "macroexpand-form")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "macroexpand-form"))))))
 
 ;;; ==========================================================================
 ;;; Tool Call Tests
@@ -209,32 +219,32 @@
 
 (test call-describe-symbol-tool
   "calling describe-symbol tool returns info"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "describe-symbol"
-                 '(("name" . "car") ("package" . "CL"))
-                 nil)))
-    (is (stringp result))
-    (is (search "CAR" result))
-    (is (search "FUNCTION" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "describe-symbol"
+                                  '(("name" . "car") ("package" . "CL")))))
+      (is (stringp result))
+      (is (search "CAR" result))
+      (is (search "FUNCTION" result)))))
 
 (test call-apropos-search-tool
   "calling apropos-search tool returns results"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "apropos-search"
-                 '(("pattern" . "map"))
-                 nil)))
-    (is (stringp result))
-    (is (search "Found" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "apropos-search"
+                                  '(("pattern" . "map")))))
+      (is (stringp result))
+      (is (search "Found" result)))))
 
 (test call-macroexpand-form-tool
   "calling macroexpand-form tool expands code"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "macroexpand-form"
-                 '(("form" . "(when t 1)"))
-                 nil)))
-    (is (stringp result))
-    (is (search "Original:" result))
-    (is (search "Expanded:" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "macroexpand-form"
+                                  '(("form" . "(when t 1)")))))
+      (is (stringp result))
+      (is (search "Original:" result))
+      (is (search "Expanded:" result)))))
 
 ;;; ==========================================================================
 ;;; Error Handling Tests
@@ -242,27 +252,27 @@
 
 (test describe-symbol-unknown-package
   "describe-symbol handles unknown package"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "describe-symbol"
-                 '(("name" . "foo") ("package" . "NONEXISTENT-PACKAGE"))
-                 nil)))
-    (is (search "not found" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "describe-symbol"
+                                  '(("name" . "foo") ("package" . "NONEXISTENT-PACKAGE")))))
+      (is (search "not found" result)))))
 
 (test describe-symbol-unknown-symbol
   "describe-symbol handles unknown symbol"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "describe-symbol"
-                 '(("name" . "this-symbol-does-not-exist-xyz"))
-                 nil)))
-    (is (search "not found" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "describe-symbol"
+                                  '(("name" . "this-symbol-does-not-exist-xyz")))))
+      (is (search "not found" result)))))
 
 (test macroexpand-form-invalid-form
   "macroexpand-form handles invalid forms"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "macroexpand-form"
-                 '(("form" . "(defun"))  ; incomplete form
-                 nil)))
-    (is (search "Error" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "macroexpand-form"
+                                  '(("form" . "(defun")))))
+      (is (search "Error" result)))))
 
 ;;; ==========================================================================
 ;;; validate-syntax Tests
@@ -332,25 +342,27 @@
 
 (test validate-syntax-tool-registered
   "validate-syntax tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "validate-syntax")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "validate-syntax"))))))
 
 (test call-validate-syntax-tool-valid
   "calling validate-syntax tool with valid code"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "validate-syntax"
-                 '(("code" . "(defun foo () 1)"))
-                 nil)))
-    (is (stringp result))
-    (is (search "valid" result :test #'char-equal))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "validate-syntax"
+                                  '(("code" . "(defun foo () 1)")))))
+      (is (stringp result))
+      (is (search "valid" result :test #'char-equal)))))
 
 (test call-validate-syntax-tool-invalid
   "calling validate-syntax tool with invalid code"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "validate-syntax"
-                 '(("code" . "(defun foo () 1"))
-                 nil)))
-    (is (stringp result))
-    (is (search "invalid" result :test #'char-equal))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "validate-syntax"
+                                  '(("code" . "(defun foo () 1")))))
+      (is (stringp result))
+      (is (search "invalid" result :test #'char-equal)))))
 
 ;;; ==========================================================================
 ;;; Phase D: CLOS Intelligence Tests
@@ -441,36 +453,40 @@
 ;; Tool Registration Tests for Phase D
 (test class-info-tool-registered
   "class-info tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "class-info")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "class-info"))))))
 
 (test find-methods-tool-registered
   "find-methods tool is registered"
-  (is (not (null (cl-mcp-server.tools:get-tool "find-methods")))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "find-methods"))))))
 
 ;; Tool Call Tests for Phase D
 (test call-class-info-tool
   "calling class-info tool returns class information"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "class-info"
-                 '(("class" . "standard-class") ("package" . "CL"))
-                 nil)))
-    (is (stringp result))
-    (is (search "STANDARD-CLASS" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "class-info"
+                                  '(("class" . "standard-class") ("package" . "CL")))))
+      (is (stringp result))
+      (is (search "STANDARD-CLASS" result)))))
 
 (test call-class-info-tool-unknown-class
   "class-info handles unknown class"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "class-info"
-                 '(("class" . "nonexistent-class-xyz"))
-                 nil)))
-    (is (search "not found" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "class-info"
+                                  '(("class" . "nonexistent-class-xyz")))))
+      (is (search "not found" result)))))
 
 (test call-find-methods-tool
   "calling find-methods tool returns method list"
-  (let ((result (cl-mcp-server.tools:call-tool
-                 "find-methods"
-                 '(("class" . "test-clos-person")
-                   ("package" . "CL-MCP-SERVER-TESTS"))
-                 nil)))
-    (is (stringp result))
-    (is (search "method" result))))
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "find-methods"
+                                  '(("class" . "test-clos-person")
+                                    ("package" . "CL-MCP-SERVER-TESTS")))))
+      (is (stringp result))
+      (is (search "method" result)))))

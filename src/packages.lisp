@@ -1,11 +1,13 @@
 ;;; src/packages.lisp
-;;; ABOUTME: Package definitions for CL-MCP-Server
+;;; ABOUTME: Package definitions for CL-MCP-Server (uses cl-mcp library)
 
+;;; Slim conditions package — only REPL-specific conditions
+;;; All JSON-RPC error conditions come from cl-mcp.conditions
 (defpackage #:cl-mcp-server.conditions
-  (:use #:cl)
-  (:shadow #:parse-error)
+  (:use #:cl #:cl-mcp.conditions)
+  (:shadowing-import-from #:cl-mcp.conditions #:parse-error)
   (:export
-   ;; Condition types
+   ;; Re-export from cl-mcp.conditions for backward compat
    #:mcp-error
    #:json-rpc-error
    #:parse-error
@@ -13,11 +15,11 @@
    #:method-not-found
    #:invalid-params
    #:internal-error
-   #:evaluation-timeout
-   ;; Condition accessors
    #:error-code
    #:error-message
    #:error-data
+   ;; REPL-specific
+   #:evaluation-timeout
    #:timeout-seconds
    #:timeout-backtrace))
 
@@ -36,43 +38,9 @@
    #:format-structured-error
    #:format-backtrace-detail))
 
-(defpackage #:cl-mcp-server.json-rpc
-  (:use #:cl #:cl-mcp-server.conditions)
-  (:shadowing-import-from #:cl-mcp-server.conditions #:parse-error)
-  (:export
-   ;; Message types
-   #:json-rpc-request
-   #:json-rpc-response
-   #:json-rpc-error-response
-   #:json-rpc-notification
-   ;; Accessors
-   #:request-id
-   #:request-method
-   #:request-params
-   #:response-id
-   #:response-result
-   #:response-error
-   ;; Constructors
-   #:make-request
-   #:make-notification
-   #:notification-p
-   #:make-success-response
-   #:make-error-response
-   ;; Functions (future)
-   #:parse-message
-   #:encode-response
-   #:encode-error))
-
-(defpackage #:cl-mcp-server.transport
-  (:use #:cl #:cl-mcp-server.json-rpc)
-  (:export
-   #:read-message
-   #:write-message
-   #:with-stdio-transport))
-
 (defpackage #:cl-mcp-server.session
-  (:use #:cl #:cl-mcp-server.conditions)
-  (:shadowing-import-from #:cl-mcp-server.conditions #:parse-error)
+  (:use #:cl #:cl-mcp.conditions)
+  (:shadowing-import-from #:cl-mcp.conditions #:parse-error)
   (:export
    #:*session*
    #:session
@@ -226,30 +194,11 @@
         #:cl-mcp-server.profiling-tools
         #:cl-mcp-server.telos-tools)
   (:export
-   #:*tools*
-   #:tool-definition
-   #:tool-name
-   #:tool-description
-   #:tool-input-schema
-   #:tool-handler
-   #:register-tool
-   #:get-tool
-   #:list-tools
-   #:tools-for-mcp
-   #:call-tool
-   #:validate-tool-args))
+   #:define-builtin-tools
+   #:get-usage-guide-content))
 
 (defpackage #:cl-mcp-server
   (:use #:cl
-        #:cl-mcp-server.conditions
-        #:cl-mcp-server.json-rpc
-        #:cl-mcp-server.transport
-        #:cl-mcp-server.session
-        #:cl-mcp-server.evaluator
-        #:cl-mcp-server.tools)
-  (:shadowing-import-from #:cl-mcp-server.conditions #:parse-error)
+        #:cl-mcp-server.session)
   (:export
-   #:start
-   #:run-server
-   #:*server-info*
-   #:*server-session*))
+   #:start))
