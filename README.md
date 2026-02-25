@@ -63,13 +63,16 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 1. Clone the repository:
 
 ```bash
+git clone https://github.com/quasi/cl-mcp.git
 git clone https://github.com/quasi/cl-mcp-server.git
-cd cl-mcp-server
 ```
+Add both repos to the quicklisp local-projects.
 
 2. Load dependencies (Quicklisp will install them automatically):
 
 ```bash
+cd cl-mcp-server
+
 sbcl --load cl-mcp-server.asd \
      --eval "(ql:quickload :cl-mcp-server)" \
      --quit
@@ -94,6 +97,35 @@ claude mcp add --scope user --transport stdio lisp -- sbcl --script /path/to/cl-
       ]
     }
   }
+}
+```
+
+5. Configure Gemini
+
+```json
+{
+  "mcpServers": {
+   "lisp": {
+     "command": "/path-to/cl-mcp-server/run-server.lisp",
+     "args": [],
+     "description": "REPL power"
+   }
+ }
+}
+```
+
+6. Configure Opencode
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "cl-mcp-server": {
+        "type": "local",
+        "enabled": true,
+        "command": ["sbcl", "--script", "/path-to/cl-mcp-server/run-server.lisp"],
+    },
+  },
 }
 ```
 
