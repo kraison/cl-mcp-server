@@ -33,3 +33,52 @@
         (cl-mcp-server.paren-tools::offset-to-line-col code 7)
       (is (= 2 line))
       (is (= 3 col)))))
+
+;;; ==========================================================================
+;;; Forward Scan Tests
+;;; ==========================================================================
+
+(test scan-forward-simple
+  "Find matching close paren for simple form"
+  (is (= 4 (cl-mcp-server.paren-tools::scan-forward "(+ 1)" 0))))
+
+(test scan-forward-nested
+  "Find matching close paren skipping nested parens"
+  (is (= 10 (cl-mcp-server.paren-tools::scan-forward "(+ (* 2 3))" 0))))
+
+(test scan-forward-inner
+  "Find matching close paren for inner open paren"
+  (is (= 9 (cl-mcp-server.paren-tools::scan-forward "(+ (* 2 3))" 3))))
+
+(test scan-forward-skip-string
+  "Parens inside strings are ignored"
+  (is (= 10 (cl-mcp-server.paren-tools::scan-forward "(foo \")\" x)" 0))))
+
+(test scan-forward-skip-line-comment
+  "Parens inside line comments are ignored"
+  (let ((code (format nil "(foo ; )~%  bar)")))
+    (is (= (1- (length code)) (cl-mcp-server.paren-tools::scan-forward code 0)))))
+
+(test scan-forward-skip-block-comment
+  "Parens inside #|...|# block comments are ignored"
+  (is (= 14 (cl-mcp-server.paren-tools::scan-forward "(foo #| ) |# x)" 0))))
+
+(test scan-forward-nested-block-comment
+  "Nested block comments are handled"
+  (is (= 20 (cl-mcp-server.paren-tools::scan-forward "(foo #| #| ) |# |# x)" 0))))
+
+(test scan-forward-skip-char-literal
+  "Character literal #\\( is not an open paren"
+  (is (= 8 (cl-mcp-server.paren-tools::scan-forward "(foo #\\()" 0))))
+
+(test scan-forward-skip-char-literal-close
+  "Character literal #\\) is not a close paren"
+  (is (= 8 (cl-mcp-server.paren-tools::scan-forward "(foo #\\))" 0))))
+
+(test scan-forward-skip-pipe-escape
+  "Pipe-escaped symbols |)(| are ignored"
+  (is (= 11 (cl-mcp-server.paren-tools::scan-forward "(foo |)(| x)" 0))))
+
+(test scan-forward-unmatched
+  "Returns nil for unmatched open paren"
+  (is (null (cl-mcp-server.paren-tools::scan-forward "(foo bar" 0))))
