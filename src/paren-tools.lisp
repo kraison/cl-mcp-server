@@ -29,7 +29,7 @@ Returns nil if the position is out of range."
                (when (= current-line line)
                  (let ((offset (+ line-start column)))
                    (return-from line-col-to-offset
-                     (if (<= offset (length code))
+                     (if (< offset (length code))
                          offset
                          nil)))))
     nil))
