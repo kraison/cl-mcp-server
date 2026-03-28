@@ -150,3 +150,92 @@ Skips: strings, line comments, block comments, character literals, pipe escapes.
                     (incf i)))
                (t (incf i))))
     nil))
+
+;;; ==========================================================================
+;;; Context Map for Backward Scanning
+;;; ==========================================================================
+
+(defun build-context-map (code)
+  "Build a boolean vector marking syntactically inert positions in CODE.
+A position is inert if it's inside a string, comment, character literal,
+or pipe-escaped symbol. Returns a simple bit vector where 1 = inert."
+  (let* ((len (length code))
+         (inert (make-array len :element-type 'bit :initial-element 0))
+         (i 0))
+    (loop while (< i len)
+          for ch = (char code i)
+          do (cond
+               ((char= ch #\")
+                (let ((end (skip-string code (1+ i))))
+                  (if end
+                      (progn
+                        (loop for j from (1+ i) below end
+                              do (setf (aref inert j) 1))
+                        (setf i end))
+                      (progn
+                        (loop for j from (1+ i) below len
+                              do (setf (aref inert j) 1))
+                        (setf i len)))))
+               ((char= ch #\;)
+                (let ((end (or (position #\Newline code :start i) len)))
+                  (loop for j from (1+ i) below end
+                        do (setf (aref inert j) 1))
+                  (setf i end)))
+               ((and (char= ch #\#) (< (1+ i) len))
+                (let ((next (char code (1+ i))))
+                  (cond
+                    ((char= next #\|)
+                     (let ((end (skip-block-comment code (+ i 2))))
+                       (if end
+                           (progn
+                             (loop for j from i below end
+                                   do (setf (aref inert j) 1))
+                             (setf i end))
+                           (progn
+                             (loop for j from i below len
+                                   do (setf (aref inert j) 1))
+                             (setf i len)))))
+                    ((char= next #\\)
+                     (let ((end (skip-char-literal code (+ i 2))))
+                       (loop for j from i below end
+                             do (setf (aref inert j) 1))
+                       (setf i end)))
+                    (t (incf i)))))
+               ((char= ch #\|)
+                (let ((end (skip-pipe-escape code (1+ i))))
+                  (if end
+                      (progn
+                        (loop for j from i below end
+                              do (setf (aref inert j) 1))
+                        (setf i end))
+                      (progn
+                        (loop for j from i below len
+                              do (setf (aref inert j) 1))
+                        (setf i len)))))
+               (t (incf i))))
+    inert))
+
+;;; ==========================================================================
+;;; Backward Scanner
+;;; ==========================================================================
+
+(defun scan-backward (code start)
+  "Scan backward from close paren at START to find matching open paren.
+Returns the offset of the matching open paren, or nil if unmatched."
+  (let ((inert (build-context-map code))
+        (depth 1)
+        (i (1- start)))
+    (loop while (and (>= i 0) (plusp depth))
+          do (cond
+               ((= 1 (aref inert i))
+                (decf i))
+               ((char= (char code i) #\()
+                (decf depth)
+                (if (zerop depth)
+                    (return-from scan-backward i)
+                    (decf i)))
+               ((char= (char code i) #\))
+                (incf depth)
+                (decf i))
+               (t (decf i))))
+    nil))

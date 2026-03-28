@@ -82,3 +82,44 @@
 (test scan-forward-unmatched
   "Returns nil for unmatched open paren"
   (is (null (cl-mcp-server.paren-tools::scan-forward "(foo bar" 0))))
+
+;;; ==========================================================================
+;;; Backward Scan Tests
+;;; ==========================================================================
+
+(test scan-backward-simple
+  "Find matching open paren from close paren"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(+ 1)" 4))))
+
+(test scan-backward-nested
+  "Find matching open paren skipping nested parens"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(+ (* 2 3))" 10))))
+
+(test scan-backward-inner
+  "Find matching open paren for inner close paren"
+  (is (= 3 (cl-mcp-server.paren-tools::scan-backward "(+ (* 2 3))" 9))))
+
+(test scan-backward-skip-string
+  "Parens inside strings are ignored when scanning backward"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(foo \"(\" x)" 10))))
+
+(test scan-backward-skip-line-comment
+  "Parens inside line comments are ignored when scanning backward"
+  (let ((code (format nil "(foo~%  ; )~%  bar)")))
+    (is (= 0 (cl-mcp-server.paren-tools::scan-backward code (1- (length code)))))))
+
+(test scan-backward-skip-block-comment
+  "Parens inside block comments are ignored when scanning backward"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(foo #| ( |# x)" 14))))
+
+(test scan-backward-skip-char-literal
+  "Character literal #\\) is not a close paren when scanning backward"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(foo #\\))" 8))))
+
+(test scan-backward-skip-pipe-escape
+  "Pipe-escaped symbols are ignored when scanning backward"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward "(foo |)(| x)" 11))))
+
+(test scan-backward-unmatched
+  "Returns nil for unmatched close paren"
+  (is (null (cl-mcp-server.paren-tools::scan-backward "foo bar)" 7))))
