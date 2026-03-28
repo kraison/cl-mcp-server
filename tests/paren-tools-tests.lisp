@@ -123,3 +123,63 @@
 (test scan-backward-unmatched
   "Returns nil for unmatched close paren"
   (is (null (cl-mcp-server.paren-tools::scan-backward "foo bar)" 7))))
+
+;;; ==========================================================================
+;;; Public API Tests
+;;; ==========================================================================
+
+(test find-matching-paren-forward
+  "find-matching-paren finds close paren from open paren"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(+ 1 2)" 1 0)))
+    (is (getf result :matched))
+    (is (= 1 (getf result :match-line)))
+    (is (= 6 (getf result :match-column)))
+    (is (eq :forward (getf result :direction)))))
+
+(test find-matching-paren-backward
+  "find-matching-paren finds open paren from close paren"
+  (let* ((code (format nil "(defun foo ()~%  (+ 1 2))"))
+         ;; Line 2 = "  (+ 1 2))" — col 9 is the outer ), closing (defun ...)
+         (result (cl-mcp-server.paren-tools:find-matching-paren code 2 9)))
+    (is (getf result :matched))
+    (is (= 1 (getf result :match-line)))
+    (is (= 0 (getf result :match-column)))
+    (is (eq :backward (getf result :direction)))))
+
+(test find-matching-paren-not-a-paren
+  "find-matching-paren returns error when not on a paren"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(+ 1)" 1 1)))
+    (is (not (getf result :matched)))
+    (is (getf result :error))))
+
+(test find-matching-paren-out-of-range
+  "find-matching-paren returns error for invalid position"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(hi)" 99 0)))
+    (is (not (getf result :matched)))
+    (is (getf result :error))))
+
+(test find-matching-paren-unmatched
+  "find-matching-paren returns error for unmatched paren"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(foo bar" 1 0)))
+    (is (not (getf result :matched)))
+    (is (getf result :error))))
+
+(test format-match-result-forward
+  "format-match-result produces readable output for forward match"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(+ 1 2)" 1 0)))
+    (let ((output (cl-mcp-server.paren-tools:format-match-result result)))
+      (is (search "line 1, column 6" output)))))
+
+(test format-match-result-backward-with-context
+  "format-match-result shows context lines for backward match"
+  (let* ((code (format nil "(defun foo (a b)~%  (+ a~%     b))"))
+         ;; Last close paren closes the defun — find its line+col
+         (last-close-pos (1- (length code))))
+    ;; Manually compute: "b))" — the last ) is at end of line 3
+    ;; Line 3 = "     b))", the last ) is at column 7
+    (multiple-value-bind (line col)
+        (cl-mcp-server.paren-tools::offset-to-line-col code last-close-pos)
+      (let* ((result (cl-mcp-server.paren-tools:find-matching-paren code line col))
+             (output (cl-mcp-server.paren-tools:format-match-result result)))
+        (is (search "defun" output))
+        (is (search "line 1, column 0" output))))))

@@ -239,3 +239,117 @@ Returns the offset of the matching open paren, or nil if unmatched."
                 (decf i))
                (t (decf i))))
     nil))
+
+;;; ==========================================================================
+;;; Helper Functions
+;;; ==========================================================================
+
+(defun split-lines (code)
+  "Split CODE into a list of lines."
+  (let ((lines nil)
+        (start 0)
+        (len (length code)))
+    (loop for i from 0 below len
+          when (char= (char code i) #\Newline)
+            do (push (subseq code start i) lines)
+               (setf start (1+ i)))
+    (when (<= start len)
+      (push (subseq code start) lines))
+    (nreverse lines)))
+
+(defun count-lines (code)
+  "Count the number of lines in CODE."
+  (1+ (count #\Newline code)))
+
+(defun extract-context (code offset &key (radius 2))
+  "Extract RADIUS lines above and below the line containing OFFSET.
+Returns a list of (line-number . text) pairs."
+  (multiple-value-bind (target-line _col) (offset-to-line-col code offset)
+    (declare (ignore _col))
+    (let ((lines (split-lines code))
+          (start (max 1 (- target-line radius)))
+          (end (min (count-lines code) (+ target-line radius))))
+      (loop for n from start to end
+            collect (cons n (nth (1- n) lines))))))
+
+;;; ==========================================================================
+;;; Public API
+;;; ==========================================================================
+
+(defun find-matching-paren (code line column)
+  "Find the matching parenthesis in CODE at LINE (1-based) and COLUMN (0-based).
+Returns a plist with:
+  :matched      — T if a match was found
+  :direction    — :forward (from open) or :backward (from close)
+  :source-line  — original line
+  :source-column — original column
+  :match-line   — 1-based line of match
+  :match-column — 0-based column of match
+  :context      — lines of code surrounding the match
+  :error        — error message if no match"
+  (let ((offset (line-col-to-offset code line column)))
+    (cond
+      ((null offset)
+       (list :matched nil
+             :error (format nil "Position out of range: line ~D, column ~D" line column)))
+      ((>= offset (length code))
+       (list :matched nil
+             :error (format nil "Position out of range: line ~D, column ~D" line column)))
+      (t
+       (let ((ch (char code offset)))
+         (cond
+           ((char= ch #\()
+            (let ((match (scan-forward code offset)))
+              (if match
+                  (multiple-value-bind (ml mc) (offset-to-line-col code match)
+                    (list :matched t
+                          :direction :forward
+                          :source-line line
+                          :source-column column
+                          :match-line ml
+                          :match-column mc
+                          :context (extract-context code match)))
+                  (list :matched nil
+                        :error (format nil "Unmatched open paren at line ~D, column ~D"
+                                       line column)))))
+           ((char= ch #\))
+            (let ((match (scan-backward code offset)))
+              (if match
+                  (multiple-value-bind (ml mc) (offset-to-line-col code match)
+                    (list :matched t
+                          :direction :backward
+                          :source-line line
+                          :source-column column
+                          :match-line ml
+                          :match-column mc
+                          :context (extract-context code match)))
+                  (list :matched nil
+                        :error (format nil "Unmatched close paren at line ~D, column ~D"
+                                       line column)))))
+           (t
+            (list :matched nil
+                  :error (format nil "Character at line ~D, column ~D is '~C', not a parenthesis"
+                                 line column ch)))))))))
+
+(defun format-match-result (result)
+  "Format a match result plist as a human-readable string."
+  (with-output-to-string (s)
+    (if (not (getf result :matched))
+        (format s "No match: ~A" (getf result :error))
+        (let ((dir (getf result :direction))
+              (ml (getf result :match-line))
+              (mc (getf result :match-column)))
+          (format s "~A from line ~D, column ~D~%"
+                  (if (eq dir :forward)
+                      "Matching ) found"
+                      "Matching ( found")
+                  (getf result :source-line)
+                  (getf result :source-column))
+          (format s "Match at line ~D, column ~D~%~%" ml mc)
+          (format s "Context:~%")
+          (dolist (ctx (getf result :context))
+            (let ((line-num (car ctx))
+                  (line-text (cdr ctx)))
+              (if (= line-num ml)
+                  (format s "  ~4D: ~A  ◀ match~%" line-num line-text)
+                  (format s "  ~4D: ~A~%" line-num line-text))))))))
