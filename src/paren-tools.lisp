@@ -16,22 +16,20 @@
   "Convert 1-based LINE and 0-based COLUMN to a 0-based character offset in CODE.
 Returns nil if the position is out of range."
   (let ((current-line 1)
-        (line-start 0))
+        (line-start 0)
+        (len (length code)))
     (when (= line 1)
-      (return-from line-col-to-offset
-        (if (< column (or (position #\Newline code) (length code)))
-            column
-            nil)))
-    (loop for i from 0 below (length code)
+      (let ((offset column))
+        (return-from line-col-to-offset
+          (if (< offset len) offset nil))))
+    (loop for i from 0 below len
           when (char= (char code i) #\Newline)
             do (incf current-line)
                (setf line-start (1+ i))
                (when (= current-line line)
                  (let ((offset (+ line-start column)))
                    (return-from line-col-to-offset
-                     (if (< offset (length code))
-                         offset
-                         nil)))))
+                     (if (< offset len) offset nil)))))
     nil))
 
 (defun offset-to-line-col (code offset)
@@ -244,29 +242,13 @@ Returns the offset of the matching open paren, or nil if unmatched."
 ;;; Helper Functions
 ;;; ==========================================================================
 
-(defun split-lines (code)
-  "Split CODE into a list of lines."
-  (let ((lines nil)
-        (start 0)
-        (len (length code)))
-    (loop for i from 0 below len
-          when (char= (char code i) #\Newline)
-            do (push (subseq code start i) lines)
-               (setf start (1+ i)))
-    (when (<= start len)
-      (push (subseq code start) lines))
-    (nreverse lines)))
-
-(defun count-lines (code)
-  "Count the number of lines in CODE."
-  (1+ (count #\Newline code)))
-
 (defun extract-context (code offset &key (radius 2))
   "Extract RADIUS lines above and below the line containing OFFSET.
 Returns a list of (line-number . text) pairs."
   (multiple-value-bind (target-line col) (offset-to-line-col code offset)
     (declare (ignore col))
-    (let* ((lines (coerce (split-lines code) 'vector))
+    (let* ((lines (coerce (uiop:split-string code :separator '(#\Newline))
+                          'vector))
            (start (max 1 (- target-line radius)))
            (end (min (length lines) (+ target-line radius))))
       (loop for n from start to end
