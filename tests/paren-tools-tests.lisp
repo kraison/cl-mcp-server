@@ -183,3 +183,41 @@
              (output (cl-mcp-server.paren-tools:format-match-result result)))
         (is (search "defun" output))
         (is (search "line 1, column 0" output))))))
+
+;;; ==========================================================================
+;;; Integration Tests (via tool system)
+;;; ==========================================================================
+
+(test match-paren-tool-forward
+  "match-paren tool works end-to-end for forward match"
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "match-paren"
+                                   '(("code" . "(+ 1 2)")
+                                     ("line" . 1)
+                                     ("column" . 0)))))
+      (is (stringp result))
+      (is (search "line 1, column 6" result)))))
+
+(test match-paren-tool-backward
+  "match-paren tool works end-to-end for backward match"
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let* ((code (format nil "(defun foo ()~%  (+ 1 2))"))
+           (result (call-test-tool server "match-paren"
+                                    `(("code" . ,code)
+                                      ("line" . 2)
+                                      ("column" . 9)))))
+      (is (stringp result))
+      (is (search "line 1, column 0" result))
+      (is (search "defun" result)))))
+
+(test match-paren-tool-not-paren
+  "match-paren tool returns error for non-paren position"
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((result (call-test-tool server "match-paren"
+                                   '(("code" . "(+ 1 2)")
+                                     ("line" . 1)
+                                     ("column" . 1)))))
+      (is (search "not a parenthesis" result)))))
