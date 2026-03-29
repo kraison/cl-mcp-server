@@ -169,16 +169,16 @@ or pipe-escaped symbol. Returns a simple bit vector where 1 = inert."
                 (let ((end (skip-string code (1+ i))))
                   (if end
                       (progn
-                        (loop for j from (1+ i) below end
+                        (loop for j from i below end
                               do (setf (aref inert j) 1))
                         (setf i end))
                       (progn
-                        (loop for j from (1+ i) below len
+                        (loop for j from i below len
                               do (setf (aref inert j) 1))
                         (setf i len)))))
                ((char= ch #\;)
                 (let ((end (or (position #\Newline code :start i) len)))
-                  (loop for j from (1+ i) below end
+                  (loop for j from i below end
                         do (setf (aref inert j) 1))
                   (setf i end)))
                ((and (char= ch #\#) (< (1+ i) len))
@@ -264,13 +264,13 @@ Returns the offset of the matching open paren, or nil if unmatched."
 (defun extract-context (code offset &key (radius 2))
   "Extract RADIUS lines above and below the line containing OFFSET.
 Returns a list of (line-number . text) pairs."
-  (multiple-value-bind (target-line _col) (offset-to-line-col code offset)
-    (declare (ignore _col))
-    (let ((lines (split-lines code))
-          (start (max 1 (- target-line radius)))
-          (end (min (count-lines code) (+ target-line radius))))
+  (multiple-value-bind (target-line col) (offset-to-line-col code offset)
+    (declare (ignore col))
+    (let* ((lines (coerce (split-lines code) 'vector))
+           (start (max 1 (- target-line radius)))
+           (end (min (length lines) (+ target-line radius))))
       (loop for n from start to end
-            collect (cons n (nth (1- n) lines))))))
+            collect (cons n (aref lines (1- n)))))))
 
 ;;; ==========================================================================
 ;;; Public API
@@ -289,10 +289,7 @@ Returns a plist with:
   :error        — error message if no match"
   (let ((offset (line-col-to-offset code line column)))
     (cond
-      ((null offset)
-       (list :matched nil
-             :error (format nil "Position out of range: line ~D, column ~D" line column)))
-      ((>= offset (length code))
+      ((or (null offset) (>= offset (length code)))
        (list :matched nil
              :error (format nil "Position out of range: line ~D, column ~D" line column)))
       (t

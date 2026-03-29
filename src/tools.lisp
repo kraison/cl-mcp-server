@@ -638,11 +638,18 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                               ("column" . (("type" . "integer")
                                            ("description" . "0-based column number of the parenthesis"))))))
    :handler (lambda (args)
-              (let* ((code (cdr (assoc "code" args :test #'string=)))
-                     (line (cdr (assoc "line" args :test #'string=)))
-                     (column (cdr (assoc "column" args :test #'string=)))
-                     (result (find-matching-paren code line column)))
-                (format-match-result result))))
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (line (cdr (assoc "line" args :test #'string=)))
+                    (column (cdr (assoc "column" args :test #'string=))))
+                (cond
+                  ((not (stringp code))
+                   "Error: 'code' parameter must be a string")
+                  ((not (integerp line))
+                   "Error: 'line' parameter must be an integer")
+                  ((not (integerp column))
+                   "Error: 'column' parameter must be an integer")
+                  (t (format-match-result
+                      (find-matching-paren code line column)))))))
 
   ;; ========================================================================
   ;; Telos Intent Introspection Tools (only when telos is loaded)

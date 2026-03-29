@@ -237,6 +237,23 @@
     (is (getf result :matched))
     (is (= 1 (length (getf result :context))))))
 
+(test scan-forward-skip-named-char-literal
+  "Character literal #\\Newline is skipped correctly"
+  (let* ((code "(foo #\\Newline)"))
+    (is (= (1- (length code))
+            (cl-mcp-server.paren-tools::scan-forward code 0)))))
+
+(test find-matching-paren-empty-string
+  "Empty string input returns error gracefully"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "" 1 0)))
+    (is (not (getf result :matched)))
+    (is (getf result :error))))
+
+(test scan-backward-nested-block-comment
+  "Backward scan skips nested block comments"
+  (is (= 0 (cl-mcp-server.paren-tools::scan-backward
+             "(foo #| #| ( |# |# x)" 20))))
+
 ;;; ==========================================================================
 ;;; Integration Tests (via tool system)
 ;;; ==========================================================================
