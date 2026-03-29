@@ -185,6 +185,59 @@
         (is (search "line 1, column 0" output))))))
 
 ;;; ==========================================================================
+;;; Edge Case Tests
+;;; ==========================================================================
+
+(test scan-forward-empty-parens
+  "Match empty parens ()"
+  (is (= 1 (cl-mcp-server.paren-tools::scan-forward "()" 0))))
+
+(test scan-forward-string-with-backslash
+  "Handle escaped backslash in string before close paren"
+  ;; (foo "\\") — the string contains a single backslash
+  (let ((code "(foo \"\\\\\")"))
+    (is (numberp (cl-mcp-server.paren-tools::scan-forward code 0)))))
+
+(test scan-backward-multiline-defun
+  "Backward match across many lines finds correct defun"
+  (let* ((code (format nil "(defun foo (x y)~%  (let ((a 1)~%        (b 2))~%    (+ a b)))"))
+         (last-pos (1- (length code))))
+    (multiple-value-bind (line col)
+        (cl-mcp-server.paren-tools::offset-to-line-col code last-pos)
+      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line col)))
+        (is (getf result :matched))
+        (is (= 1 (getf result :match-line)))
+        (is (= 0 (getf result :match-column)))))))
+
+(test scan-forward-hash-not-followed-by-pipe-or-backslash
+  "Hash followed by non-special char is not treated as dispatch"
+  (is (= 5 (cl-mcp-server.paren-tools::scan-forward "(#foo)" 0))))
+
+(test find-matching-paren-preserves-context-radius
+  "Context includes lines above and below match"
+  (let* ((code (format nil ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))~%;;; footer"))
+         ;; Find the closing ) of defun at end of line 4
+         ;; Line 4 = "  (- 3 4))" — the last ) closes the defun
+         (last-close (1- (length (format nil ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))")))))
+    (multiple-value-bind (line col)
+        (cl-mcp-server.paren-tools::offset-to-line-col code last-close)
+      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line col)))
+        (is (getf result :matched))
+        (is (= 2 (getf result :match-line)))
+        (let ((ctx (getf result :context)))
+          (is (>= (length ctx) 3)))))))
+
+(test scan-forward-deeply-nested
+  "Handle deeply nested parentheses"
+  (is (= 9 (cl-mcp-server.paren-tools::scan-forward "((((()))))  " 0))))
+
+(test find-matching-paren-single-line-context
+  "Context works correctly for single-line code"
+  (let ((result (cl-mcp-server.paren-tools:find-matching-paren "(+ 1)" 1 0)))
+    (is (getf result :matched))
+    (is (= 1 (length (getf result :context))))))
+
+;;; ==========================================================================
 ;;; Integration Tests (via tool system)
 ;;; ==========================================================================
 
