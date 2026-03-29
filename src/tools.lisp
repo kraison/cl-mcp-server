@@ -624,6 +624,34 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                     (format nil "Allocation profiling error: ~A" e))))))
 
   ;; ========================================================================
+  ;; Parenthesis Matching Tool
+  ;; ========================================================================
+
+  (cl-mcp:register-tool server "match-paren"
+   :description "Find the matching parenthesis in Lisp source code. Given a cursor position on a paren, returns the position of its match with surrounding context. Essential for navigating nested Lisp expressions."
+   :schema '(("type" . "object")
+             ("required" . ("code" "line" "column"))
+             ("properties" . (("code" . (("type" . "string")
+                                         ("description" . "Lisp source code")))
+                              ("line" . (("type" . "integer")
+                                         ("description" . "1-based line number of the parenthesis")))
+                              ("column" . (("type" . "integer")
+                                           ("description" . "0-based column number of the parenthesis"))))))
+   :handler (lambda (args)
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (line (cdr (assoc "line" args :test #'string=)))
+                    (column (cdr (assoc "column" args :test #'string=))))
+                (cond
+                  ((not (stringp code))
+                   "Error: 'code' parameter must be a string")
+                  ((not (integerp line))
+                   "Error: 'line' parameter must be an integer")
+                  ((not (integerp column))
+                   "Error: 'column' parameter must be an integer")
+                  (t (format-match-result
+                      (find-matching-paren code line column)))))))
+
+  ;; ========================================================================
   ;; Telos Intent Introspection Tools (only when telos is loaded)
   ;; ========================================================================
 

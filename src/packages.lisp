@@ -185,6 +185,12 @@
    #:format-feature-decisions
    #:format-list-decisions))
 
+(defpackage #:cl-mcp-server.paren-tools
+  (:use #:cl)
+  (:export
+   #:find-matching-paren
+   #:format-match-result))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
@@ -192,7 +198,8 @@
         #:cl-mcp-server.introspection
         #:cl-mcp-server.asdf-tools
         #:cl-mcp-server.profiling-tools
-        #:cl-mcp-server.telos-tools)
+        #:cl-mcp-server.telos-tools
+        #:cl-mcp-server.paren-tools)
   (:export
    #:define-builtin-tools
    #:get-usage-guide-content))
