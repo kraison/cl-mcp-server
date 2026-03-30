@@ -61,13 +61,14 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 ### Installation
 
-1. Clone the repository:
+1. Clone the following repositories to your quicklisp local-projects:
 
 ```bash
+git clone https://github.com/quasi/opsis
+git clone https://github.com/quasi/telos
 git clone https://github.com/quasi/cl-mcp.git
 git clone https://github.com/quasi/cl-mcp-server.git
 ```
-Add both repos to the quicklisp local-projects.
 
 2. Load dependencies (Quicklisp will install them automatically):
 
