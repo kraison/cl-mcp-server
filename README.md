@@ -2,13 +2,15 @@
 
 **Model Context Protocol server for Common Lisp code evaluation**
 
-CL-MCP-Server is the BEEZ KNEEZ. Gives Claude SUPERPOWERS.
+CL-MCP-Server is the BEEZ KNEEZ. Gives Claude/Codex SUPERPOWERS.
 
 AI agents evaluate Common Lisp code in a persistent, stateful REPL session over the Model Context Protocol (MCP).
 
-Our focus is simple: Empower Claude with a REPL.
+Our focus is simple: Empower your AGENT with a REPL.
 
-Claude is already good with file system access. Claude is smart. Claude decides how to use the REPL. Point your instructions at Claude.
+Agent is already good with file system access. Agent is smart. Agent decides how to use the REPL. Agent gets SuperPowers.  
+
+Lisp Is Super Power
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -23,6 +25,7 @@ CL-MCP-Server is an MCP server implementation that provides Claude with the abil
 - **Capture rich output** (return values, stdout, stderr, warnings, and on-demand backtraces)
 - **Handle errors gracefully** using Common Lisp's condition system
 - **Support incremental development** with stateful session management
+- Optimized for Token efficiency 
 
 Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience where definitions accumulate and state persists, enabling interactive exploratory programming through Claude.
 
