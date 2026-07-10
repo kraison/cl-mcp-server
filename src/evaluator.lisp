@@ -14,6 +14,11 @@ Set to NIL to disable timeout (not recommended for untrusted code).")
 (defparameter *max-output-chars* 100000
   "Maximum characters to capture from stdout/stderr before truncation.")
 
+(defparameter *include-backtrace-in-evaluate-response* nil
+  "Whether evaluate-code includes backtraces in immediate error responses.
+Backtraces are still captured in structured errors for describe-last-error
+and get-backtrace.")
+
 (defun truncate-output (string limit)
   "Truncate STRING to at most LIMIT characters, appending a truncation notice."
   (if (and limit (> (length string) limit))
@@ -285,7 +290,8 @@ Only the values from the last form are returned."
         (setf error-info (format-timeout-error c))
         (setf success-p nil))
       (error (c)
-        (setf error-info (format-error c))
+        (let ((*print-backtrace-p* *include-backtrace-in-evaluate-response*))
+          (setf error-info (format-error c)))
         (setf success-p nil)))
     (make-evaluation-result
      :success-p success-p
@@ -309,7 +315,8 @@ Only the values from the last form are returned."
                to increase timeout.~
                ~@[~%~%Backtrace at timeout:~%~A~]"
           (timeout-seconds condition)
-          (timeout-backtrace condition)))
+          (when *include-backtrace-in-evaluate-response*
+            (timeout-backtrace condition))))
 
 ;;; ==========================================================================
 ;;; Result Formatting for MCP
@@ -362,14 +369,16 @@ Includes stdout output, warnings, return values, timing, and errors."
     ;; Warnings section
     (dolist (warning (result-warnings result))
       (format s "[Warning] ~a~%" warning))
-    ;; Values or error
+    ;; Values or error. When warnings were signaled, the diagnostic text is the
+    ;; useful payload; suppress return values to avoid echoing large forms.
     (if (result-success-p result)
         (progn
-          (let ((values (result-values result)))
-            (if values
-                (dolist (val values)
-                  (format s "=> ~a~%" val))
-                (format s "; No values~%")))
+          (unless (result-warnings result)
+            (let ((values (result-values result)))
+              (if values
+                  (dolist (val values)
+                    (format s "=> ~a~%" val))
+                  (format s "; No values~%"))))
           ;; Timing section (if present)
           (let ((timing (result-timing result)))
             (when timing

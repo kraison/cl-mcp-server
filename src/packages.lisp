@@ -79,7 +79,8 @@
    #:format-timing-result
    ;; Timeout configuration
    #:*evaluation-timeout*
-   #:*max-output-chars*))
+   #:*max-output-chars*
+   #:*include-backtrace-in-evaluate-response*))
 
 (defpackage #:cl-mcp-server.introspection
   (:use #:cl)

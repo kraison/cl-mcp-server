@@ -20,7 +20,7 @@ CL-MCP-Server is an MCP server implementation that provides Claude with the abil
 
 - **Evaluate Common Lisp expressions** in a live REPL environment
 - **Maintain persistent state** across evaluations (functions, variables, loaded systems)
-- **Capture rich output** (return values, stdout, stderr, warnings, backtraces)
+- **Capture rich output** (return values, stdout, stderr, warnings, and on-demand backtraces)
 - **Handle errors gracefully** using Common Lisp's condition system
 - **Support incremental development** with stateful session management
 
@@ -32,8 +32,8 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 - **NEW**: Paren matching tools -- the agents struggle with lots of parens
 - **Persistent REPL**: Define functions once, use them repeatedly in the same session
-- **36 tools**: full-on REPL power for evaluation, introspection, profiling, and more
-- **Rich Error Reporting**: Get detailed backtraces and condition information when things go wrong
+- **37 tools**: full-on REPL power for evaluation, introspection, profiling, and more
+- **Rich Error Reporting**: Get concise default errors, with detailed backtraces and condition information on demand
 - **Stream Separation**: Clearly distinguish between return values, printed output, and warnings
 - **Safe Execution**: Server never crashes—all user code errors are caught and reported
 
@@ -177,14 +177,18 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 - ✓ **MCP Protocol**: Standards-compliant JSON-RPC 2.0 over stdio
 - ✓ **Persistent Session**: State persists across all evaluations
 - ✓ **Rich Output**: Separates return values, stdout, stderr, and warnings
-- ✓ **Error Handling**: Captures and reports conditions with backtraces
+- ✓ **Error Handling**: Captures conditions with concise default reports and on-demand backtraces
 - ✓ **Multiple Values**: Full support for Common Lisp's multiple return values
 - ✓ **Safety**: Server isolation mitigates against user code from crashing the server
 - ✓ **Stream Capture**: All output streams are captured during evaluation
 
 ### Available Tools
 
-CL-MCP-Server provides **36 tools** organized into categories:
+CL-MCP-Server provides **37 tools** organized into categories:
+
+#### Workflow & Configuration
+- **`get-usage-guide`** - Get the recommended workflow for effective REPL-assisted development
+- **`configure-limits`** - Configure evaluation timeout and maximum captured output
 
 #### Code Evaluation & Execution
 - **`evaluate-lisp`** - Execute Common Lisp code in persistent REPL session
@@ -193,10 +197,13 @@ CL-MCP-Server provides **36 tools** organized into categories:
 
 #### Syntax & Validation
 - **`validate-syntax`** - Check code syntax without evaluation (use before saving files)
+- **`match-paren`** - Find matching parentheses with line/column context
 
 #### Code Introspection
 - **`describe-symbol`** - Get comprehensive information about symbols (functions, variables, classes)
 - **`apropos-search`** - Search for symbols by pattern with type filtering
+- **`who-calls`** - Find functions that call a specified function
+- **`who-references`** - Find code that references a specified variable
 - **`macroexpand-form`** - Expand macros to understand their transformations
 
 #### CLOS Intelligence
@@ -211,6 +218,8 @@ CL-MCP-Server provides **36 tools** organized into categories:
 - **`describe-system`** - Get information about ASDF system structure
 - **`system-dependencies`** - View dependency graph for a system
 - **`list-local-systems`** - Find all locally available ASDF systems
+- **`find-system-file`** - Locate the ASDF definition file for a system
+- **`load-system`** - Load an ASDF system by name
 - **`load-file`** - Load a single Lisp file into the session
 
 #### Quicklisp Integration
@@ -233,8 +242,19 @@ CL-MCP-Server provides **36 tools** organized into categories:
 - **`telos-get-intent`** - Get intent attached to functions, classes, or conditions
 - **`telos-intent-chain`** - Trace intent hierarchy from code to root feature
 - **`telos-feature-members`** - List all functions and classes in a feature
+- **`telos-feature-decisions`** - Get recorded design decisions for a feature
+- **`telos-list-decisions`** - List recorded decisions across all features
 
 See [Tools Reference](docs/reference/) for detailed documentation.
+
+### Token-Optimized Evaluation Output
+
+`evaluate-lisp` is optimized for MCP token usage. The default response returns the information an agent usually needs immediately, and keeps verbose diagnostic detail available through dedicated follow-up tools.
+
+- Warning responses show warnings only. Return values are suppressed when warnings are present, avoiding large `=> ...` echoes from forms that returned a long value.
+- Error and timeout responses are concise by default: condition type plus message, without an inline backtrace.
+- Full error context is still captured in the session. Use **`describe-last-error`** for restarts and a backtrace overview, or **`get-backtrace`** for stack frames.
+- If inline backtraces are needed for a special workflow, the evaluator exposes `cl-mcp-server.evaluator:*include-backtrace-in-evaluate-response*`.
 
 ## Architecture
 
@@ -256,7 +276,7 @@ See [Tools Reference](docs/reference/) for detailed documentation.
 ┌──────────────▼───────────────────────┐
 │         CL-MCP-Server                │
 │  ┌────────────────────────────────┐  │
-│  │  Tool Layer (28+ REPL tools)   │  │
+│  │  Tool Layer (37 REPL tools)    │  │
 │  └──────────────┬─────────────────┘  │
 │                 │                    │
 │  ┌──────────────▼─────────────────┐  │
@@ -285,7 +305,7 @@ sbcl --load cl-mcp-server.asd \
 
 **Version**: 0.3.0
 
-**Status**: Alpha (human testing required). The core functionality is working and tested with 36 tools available. The API may change as we gather user feedback.
+**Status**: Alpha (human testing required). The core functionality is working and tested with 37 tools available. The API may change as we gather user feedback.
 
 ## Contributing
 
@@ -305,6 +325,14 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Unreleased
+
+**MCP Token Usage Optimization**
+
+- `evaluate-lisp` suppresses return values when warnings are present, avoiding large value echoes in diagnostic responses
+- Immediate error and timeout responses are concise by default; detailed backtraces remain available through `describe-last-error` and `get-backtrace`
+- README tool catalog updated to list all 37 currently registered tools
 
 ### Version 0.3.1 (2026-02-25)
 
@@ -327,7 +355,7 @@ MIT License
   - `telos-intent-chain` - Trace intent hierarchy from code to root feature
   - `telos-feature-members` - List all functions and classes in a feature
 
-**Total: 28 tools** (up from 23 in v0.2.0 — note: actual count is 36 including configure-limits, who-calls, who-references, find-system-file, telos-feature-decisions, telos-list-decisions, load-system, get-usage-guide)
+**Total at release: 28 tools** (up from 23 in v0.2.0; current releases document 37 registered tools in the Available Tools section)
 
 **Features:**
 - Graceful degradation when telos is not loaded

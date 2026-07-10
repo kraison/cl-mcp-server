@@ -98,7 +98,9 @@ Sections are omitted if empty:
 - No `[stdout]` section if nothing was printed
 - No `[stderr]` section if no error output
 - No `[warnings]` section if no warnings signaled
-- Multiple `=>` lines only for multiple values
+- Return value lines appear only when evaluation succeeds without warnings
+- When warnings are present, return values are suppressed to keep MCP responses diagnostic-focused
+- Multiple `=>` lines only for multiple values on warning-free success
 - Timing section only if `capture-time` was true
 
 ### Timing Output (when capture-time is true)
@@ -124,19 +126,18 @@ When evaluation signals an unhandled error:
   "content": [
     {
       "type": "text",
-      "text": "[ERROR] {CONDITION-TYPE}\n{condition message}\n\n[Backtrace]\n{formatted backtrace}"
+      "text": "[ERROR] {CONDITION-TYPE}\n{condition message}"
     }
   ],
   "isError": true
 }
 ```
 
-### Backtrace Formatting
+### Backtrace Access
 
-Backtraces are truncated to the most relevant frames:
-1. Skip internal evaluator frames
-2. Show up to 20 user-relevant frames
-3. Format: `N: (FUNCTION-NAME ARG1 ARG2 ...)`
+Backtraces are captured for the session but omitted from the immediate
+`evaluate-lisp` response to reduce MCP token usage. Use `describe-last-error`
+or `get-backtrace` when detailed diagnostics are needed.
 
 ## Captured Streams
 

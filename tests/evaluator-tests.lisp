@@ -336,20 +336,42 @@
     (is (search "=> 42" formatted))))
 
 (test format-result-with-warnings
-  "Test formatting a result with warnings"
+  "Test formatting a result with warnings suppresses return values"
   (let* ((result (cl-mcp-server.evaluator:evaluate-code
                   "(warn \"be careful\") :ok"))
          (formatted (cl-mcp-server.evaluator:format-result result)))
     (is (search "Warning" formatted))
     (is (search "be careful" formatted))
-    (is (search "=> :OK" formatted))))
+    (is (null (search "=> :OK" formatted)))))
+
+(test format-result-with-warnings-saves-large-value-output
+  "Test that warnings do not echo large return values"
+  (let* ((result (cl-mcp-server.evaluator:evaluate-code
+                  "(warn \"large result\") (loop repeat 100 collect 'x)"))
+         (formatted (cl-mcp-server.evaluator:format-result result))
+         (legacy-size (+ (length formatted)
+                         (length "=> ")
+                         (length (first (cl-mcp-server.evaluator:result-values result)))
+                         1)))
+    (is (search "large result" formatted))
+    (is (null (search "=> " formatted)))
+    (is (< (length formatted) legacy-size))))
 
 (test format-error-result
-  "Test formatting an error result"
+  "Test formatting an error result uses concise diagnostics"
   (let* ((result (cl-mcp-server.evaluator:evaluate-code "(error \"oops\")"))
          (formatted (cl-mcp-server.evaluator:format-result result)))
     (is (search "[ERROR]" formatted))
-    (is (search "oops" formatted))))
+    (is (search "oops" formatted))
+    (is (null (search "[Backtrace]" formatted)))))
+
+(test format-error-result-can-include-backtrace
+  "Test immediate error backtraces remain available behind a configuration knob"
+  (let ((cl-mcp-server.evaluator:*include-backtrace-in-evaluate-response* t))
+    (let* ((result (cl-mcp-server.evaluator:evaluate-code "(error \"oops\")"))
+           (formatted (cl-mcp-server.evaluator:format-result result)))
+      (is (search "[ERROR]" formatted))
+      (is (search "[Backtrace]" formatted)))))
 
 (test format-no-values-result
   "Test formatting a result with no values"
@@ -392,6 +414,13 @@
   (let ((result (cl-mcp-server.evaluator:evaluate-code "(sleep 2)" :timeout 1)))
     (is-false (cl-mcp-server.evaluator:result-success-p result))
     (is (search "configure-limits" (cl-mcp-server.evaluator:result-error result)))))
+
+(test timeout-error-omits-backtrace-by-default
+  "Test that immediate timeout output is concise by default"
+  (let ((result (cl-mcp-server.evaluator:evaluate-code "(sleep 2)" :timeout 1)))
+    (is-false (cl-mcp-server.evaluator:result-success-p result))
+    (is (null (search "Backtrace at timeout"
+                      (cl-mcp-server.evaluator:result-error result))))))
 
 (test nil-timeout-disables-limit
   "Test that NIL timeout disables the limit"
