@@ -64,7 +64,7 @@ digraph {
 | `cl-mcp-server.introspection` | `src/introspection.lisp` | Symbol/class/method inspection |
 | `cl-mcp-server.asdf-tools` | `src/asdf-tools.lisp` | ASDF/Quicklisp operations |
 | `cl-mcp-server.profiling-tools` | `src/profiling-tools.lisp` | Statistical and deterministic profiling |
-| `cl-mcp-server.telos-tools` | `src/telos-tools.lisp` | Telos intent introspection (graceful degradation) |
+| `cl-mcp-server.telos-tools` | `src/telos-tools.lisp` | Telos intent introspection (graceful degradation; see RULE-007) |
 | `cl-mcp-server.tools` | `src/tools.lisp` | Registers all 36 tools via `cl-mcp:register-tool` |
 | `cl-mcp-server` | `src/server.lisp` | Entry point: `start` |
 
@@ -103,6 +103,26 @@ Error responses MUST include condition type, not just message:
 ### RULE-006: Tool Registration via cl-mcp
 New tools MUST be registered via `cl-mcp:register-tool` in `src/tools.lisp`. Do NOT add MCP protocol methods directly.
 
+### RULE-007: Never Report a Swallowed Failure as an Empty Result
+A tool MUST NOT convert "I could not find out" into "there is nothing there".
+
+`(handler-case (foo) (error () nil))` around a query is how a tool learns to
+lie: the caller sees an empty-but-confident answer and goes hunting for the
+wrong bug. Wrapping a query MUST preserve the distinction:
+
+```lisp
+(handler-case (values (apply sym args) :ok)
+  (error (condition) (values nil condition)))
+```
+
+Callers MUST inspect the status and report a failure as its own outcome. This
+applies per field, not just per call — a struct accessor that fails must not
+render as an absent field. See `src/telos-tools.lisp`, where `telos-call` /
+`telos-failure` implement this and the `:error` status carries it out.
+
+Note the tension with RULE-001: handlers must not raise, which tempts a blanket
+`handler-case`. Catch the condition, then *report* it — do not discard it.
+
 ## Coding Conventions
 
 - Every file begins with `;;; ABOUTME: ...` comment
@@ -121,7 +141,16 @@ Test helpers in `tests/packages.lisp`:
 ```
 
 Test suites: `error-format-tests`, `session-tests`, `evaluator-tests`, `tools-tests`,
-`introspection-tests`, `asdf-tools-tests`, `profiling-tools-tests`, `integration-tests`.
+`introspection-tests`, `asdf-tools-tests`, `profiling-tools-tests`, `paren-tools-tests`,
+`telos-tools-tests`, `integration-tests`.
+
+**Test-only dependency on `telos`.** `cl-mcp-server` itself never requires
+telos, but `cl-mcp-server/tests` does. Telos keys its registries by symbols
+interned in each feature's *own defining package*, and a mock would drift from
+that shape exactly as the wrapper once did — which is the bug the suite exists
+to prevent. `tests/telos-fixture.lisp` therefore defines real features in
+throwaway packages the resolver cannot guess, so any regression to
+intern-based lookup fails loudly instead of passing by accident.
 
 ## Key Invariants
 
@@ -131,6 +160,7 @@ Test suites: `error-format-tests`, `session-tests`, `evaluator-tests`, `tools-te
 4. **INV-004**: Output streams (stdout/stderr/values) are distinguishable
 5. **INV-005**: All messages conform to JSON-RPC 2.0
 6. **INV-006**: Condition types are preserved in error reports
+7. **INV-007**: A failed query is never reported as an empty result (RULE-007)
 
 ## Interactive Development
 

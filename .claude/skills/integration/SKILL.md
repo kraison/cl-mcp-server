@@ -185,7 +185,9 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 | Large output | Response truncated | `configure-limits {"max-output": 50000}` |
 | Missing package | `No package error` | `evaluate-lisp` with `"package": "cl-user"` |
 | `load-system` vs `quickload` | System not found | Use `quickload` for Quicklisp systems; `load-system` for ASDF-registered only |
-| Telos tools on unloaded system | Empty results | Load the system first; telos returns empty when not available |
+| Telos tools on unloaded system | `Telos is not loaded in this image` | `quickload` telos, then reload the system whose source has the `deffeature` forms |
+| Telos feature name not found | `No feature named X. Telos is loaded and N features are registered` | The name is wrong, not the load — use the suggested matches or `telos-list-features`. Bare and `pkg::name` spellings both work |
+| Telos itself broken | `Telos failed while answering this query` | A telos bug or a stale FASL. Deliberately distinct from "not found" — other telos tools may report wrong counts until it is fixed |
 | Macro redefinition | Callers use old expansion | After macro change, reload dependent files |
 
 ## Detailed Reference

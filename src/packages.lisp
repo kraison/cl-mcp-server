@@ -169,6 +169,10 @@
   (:export
    ;; Availability check
    #:telos-available-p
+   ;; Name resolution
+   #:resolve-feature-name
+   #:resolve-feature
+   #:qualified-name
    ;; Introspection
    #:introspect-list-features
    #:introspect-feature-intent
