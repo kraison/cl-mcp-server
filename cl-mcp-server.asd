@@ -27,6 +27,7 @@
                  (:file "hyperspec-data")
                  (:file "hyperspec")
                  (:file "quicklisp-tools")
+                 (:file "restarts")
                  (:file "tools")
                  (:file "server"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:cl-mcp-server/tests))))

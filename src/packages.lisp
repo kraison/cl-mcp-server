@@ -248,6 +248,22 @@
    #:system-installed-p
    #:human-bytes))
 
+(defpackage #:cl-mcp-server.restarts
+  (:use #:cl)
+  (:local-nicknames (#:bt #:bordeaux-threads))
+  (:export
+   #:evaluate-suspendable
+   #:resume-suspension
+   #:abandon-suspension
+   #:live-suspensions
+   #:suspension-count
+   #:format-eval-outcome
+   #:format-suspension-list
+   #:restart-interactive-p
+   #:describe-restarts
+   #:*suspension-timeout*
+   #:*max-suspensions*))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator

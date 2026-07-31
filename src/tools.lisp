@@ -266,6 +266,73 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; Quicklisp: read-only, offline dist introspection
   ;; ========================================================================
 
+  ;; ========================================================================
+  ;; Live conditions: suspend on error so restarts can be invoked
+  ;; ========================================================================
+
+  (cl-mcp:register-tool server "evaluate-with-restarts"
+   :description "Evaluate Common Lisp code; if it signals, SUSPEND the condition live instead of unwinding, and report the available restarts. Unlike evaluate-lisp -- which reports restarts only after the stack is gone -- the condition stays alive and its restarts can actually be invoked with invoke-restart. Use this when you want SLIME-style recovery: CONTINUE past a cerror and the computation RESUMES in place rather than restarting. Suspensions expire automatically."
+   :schema '(("type" . "object")
+             ("required" . ("code"))
+             ("properties" . (("code" . (("type" . "string")
+                                         ("description" . "Common Lisp code to evaluate")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package context (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.restarts:format-eval-outcome
+                     (cl-mcp-server.restarts:evaluate-suspendable
+                      code :package pkg))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "invoke-restart"
+   :description "Choose a restart on a suspended evaluation (see evaluate-with-restarts). Identify the restart by index or name. Restarts that prompt for a value (USE-VALUE, STORE-VALUE and friends) REQUIRE the `value` argument -- invoking one without a value would re-enter the debugger and wedge the worker, so it is refused. Returns whatever the resumed evaluation goes on to produce."
+   :schema '(("type" . "object")
+             ("required" . ("suspension-id"))
+             ("properties" . (("suspension-id" . (("type" . "integer")
+                                                  ("description" . "Id from evaluate-with-restarts")))
+                              ("restart-index" . (("type" . "integer")
+                                                  ("description" . "Restart to invoke, by index")))
+                              ("restart-name" . (("type" . "string")
+                                                 ("description" . "Restart to invoke, by name (e.g. \"CONTINUE\")")))
+                              ("value" . (("type" . "string")
+                                          ("description" . "Lisp form supplying the value for an interactive restart, e.g. \"42\"")))
+                              ("abort" . (("type" . "boolean")
+                                          ("description" . "Abort the suspended evaluation instead of choosing a restart"))))))
+   :handler (lambda (args)
+              (flet ((arg (k) (cdr (assoc k args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.restarts:format-eval-outcome
+                     (cl-mcp-server.restarts:resume-suspension
+                      (arg "suspension-id")
+                      :restart-index (arg "restart-index")
+                      :restart-name (arg "restart-name")
+                      :value (arg "value")
+                      :abort (eq (arg "abort") t)))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "list-suspensions"
+   :description "List evaluations currently suspended awaiting a restart decision, with their conditions and ages. Use this to find a suspension id you have lost track of, or to check whether something is still holding a worker thread."
+   :schema `(("type" . "object")
+             ("properties" . ,(make-hash-table :test #'equal)))
+   :handler (lambda (args)
+              (declare (ignore args))
+              (multiple-value-bind (text error-p)
+                  (cl-mcp-server.restarts:format-suspension-list)
+                (values text error-p))))
+
+  (cl-mcp:register-tool server "abandon-suspension"
+   :description "Abort a suspended evaluation and release its worker thread. Use when you do not want any of the offered restarts, or to clean up a suspension you no longer care about."
+   :schema '(("type" . "object")
+             ("required" . ("suspension-id"))
+             ("properties" . (("suspension-id" . (("type" . "integer")
+                                                  ("description" . "Id to abandon"))))))
+   :handler (lambda (args)
+              (cl-mcp-server.restarts:abandon-suspension
+               (cdr (assoc "suspension-id" args :test #'string=)))))
+
   ;; quicklisp-dry-run: what would quickload actually do?
   (cl-mcp:register-tool server "quicklisp-dry-run"
    :description "Show exactly what (ql:quickload SYSTEM) would download, WITHOUT downloading anything. Reports the full transitive dependency tree, which systems are already installed, which would be fetched, and the total archive size. CALL THIS BEFORE quickload for any system you have not loaded before: quickload is an irreversible network action whose blast radius is otherwise invisible. Read-only and offline - it queries the local dist index."
