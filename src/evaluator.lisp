@@ -285,7 +285,14 @@ Only the values from the last form are returned."
         (setf error-info (format-timeout-error c))
         (setf success-p nil))
       (error (c)
-        (setf error-info (format-error c))
+        ;; NB: this handler-case clause runs AFTER the stack has unwound, so
+        ;; calling format-error here would capture a backtrace containing only
+        ;; MCP server frames -- the user's own frames are already gone. The
+        ;; handler-bind above ran at the point of the error and saved the real
+        ;; stack in STRUCTURED-ERROR, so prefer that.
+        (setf error-info (if structured-error
+                             (format-structured-error structured-error)
+                             (format-error c)))
         (setf success-p nil)))
     (make-evaluation-result
      :success-p success-p
