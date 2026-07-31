@@ -191,6 +191,16 @@
    #:find-matching-paren
    #:format-match-result))
 
+(defpackage #:cl-mcp-server.file-tools
+  (:use #:cl)
+  (:export
+   #:write-lisp-file
+   #:format-write-result
+   #:validate-file-content
+   #:count-paren-balance
+   #:compile-file-check
+   #:*backup-suffix*))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
@@ -199,7 +209,8 @@
         #:cl-mcp-server.asdf-tools
         #:cl-mcp-server.profiling-tools
         #:cl-mcp-server.telos-tools
-        #:cl-mcp-server.paren-tools)
+        #:cl-mcp-server.paren-tools
+        #:cl-mcp-server.file-tools)
   (:export
    #:define-builtin-tools
    #:get-usage-guide-content))

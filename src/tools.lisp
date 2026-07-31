@@ -53,7 +53,10 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                 ;; Phase C: Store structured error in session for later inspection
                 (when (and session (result-structured-error result))
                   (setf (session-last-error session) (result-structured-error result)))
-                (format-result result))))
+                ;; Report tool-domain failure via MCP isError so clients can
+                ;; distinguish a signalled condition from a successful eval.
+                (values (format-result result)
+                        (not (result-success-p result))))))
 
   ;; list-definitions: List definitions in the current session
   (cl-mcp:register-tool server "list-definitions"
@@ -258,6 +261,31 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; ========================================================================
   ;; Phase B: Enhanced Evaluation Tools
   ;; ========================================================================
+
+  ;; write-lisp-file: atomic validate -> write -> compile -> report
+  (cl-mcp:register-tool server "write-lisp-file"
+   :description "Write Common Lisp source to a file ATOMICALLY AND SAFELY: the content is parsed first and the file is written ONLY if it is syntactically valid, then compiled to report warnings and type errors. PREFER THIS over any shell/editor tool for creating or overwriting .lisp files -- it cannot leave a malformed file on disk, it keeps a .bak of the previous version, and it returns compiler diagnostics in the same call. Returns isError:true if the content is invalid (nothing written) or if compilation fails."
+   :schema '(("type" . "object")
+             ("required" . ("path" "content"))
+             ("properties" . (("path" . (("type" . "string")
+                                         ("description" . "Absolute path of the file to write")))
+                              ("content" . (("type" . "string")
+                                            ("description" . "Full Common Lisp source text for the file")))
+                              ("compile-check" . (("type" . "boolean")
+                                                  ("description" . "Compile after writing to surface warnings and type errors (default: true)")))
+                              ("backup" . (("type" . "boolean")
+                                           ("description" . "Keep a .bak copy of the previous version (default: true)"))))))
+   :handler (lambda (args)
+              (flet ((arg (k default)
+                       (let ((cell (assoc k args :test #'string=)))
+                         (if cell (cdr cell) default))))
+                (let ((result (write-lisp-file
+                               (arg "path" nil)
+                               (arg "content" "")
+                               :compile-check (not (eq (arg "compile-check" t) :false))
+                               :backup (not (eq (arg "backup" t) :false)))))
+                  (multiple-value-bind (text error-p) (format-write-result result)
+                    (values text error-p))))))
 
   ;; compile-form: Compile code without evaluating it
   (cl-mcp:register-tool server "compile-form"
