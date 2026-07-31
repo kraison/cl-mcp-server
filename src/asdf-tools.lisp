@@ -247,35 +247,6 @@ Returns a plist with :loaded, :system, :downloaded (if any new systems were fetc
         (dolist (w warnings)
           (format s "  ~A~%" w))))))
 
-(defun introspect-quicklisp-search (pattern &key (limit 30))
-  "Search Quicklisp for systems matching PATTERN.
-Returns list of matching system names."
-  (unless (quicklisp-available-p)
-    (error "Quicklisp is not available"))
-  (let ((ql-system-list (find-symbol "SYSTEM-LIST" :ql))
-        (ql-dist-name (find-symbol "NAME" :ql-dist))
-        (results nil)
-        (count 0))
-    (dolist (sys (funcall ql-system-list))
-      (when (>= count limit)
-        (return))
-      (let ((name (funcall ql-dist-name sys)))
-        (when (search pattern name :test #'char-equal)
-          (push name results)
-          (incf count))))
-    (sort (nreverse results) #'string<)))
-
-(defun format-quicklisp-search-results (results pattern)
-  "Format Quicklisp search results as human-readable string."
-  (with-output-to-string (s)
-    (if results
-        (progn
-          (format s "Found ~D system~:P matching '~A':~%~%"
-                  (length results) pattern)
-          (dolist (r results)
-            (format s "  ~A~%" r)))
-        (format s "No systems found matching '~A'~%" pattern))))
-
 ;;; ==========================================================================
 ;;; E.6: load-file - Load Single Lisp File
 ;;; ==========================================================================

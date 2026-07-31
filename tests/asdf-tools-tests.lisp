@@ -145,25 +145,11 @@
   ;; Quicklisp should be available in test environment
   (is (cl-mcp-server.asdf-tools:quicklisp-available-p)))
 
-(test introspect-quicklisp-search-finds-systems
-  "introspect-quicklisp-search finds matching systems"
-  (let ((results (cl-mcp-server.asdf-tools:introspect-quicklisp-search "json" :limit 5)))
-    (is (listp results))
-    (is (<= (length results) 5))
-    ;; All results should contain "json"
-    (is (every (lambda (name) (search "json" name :test #'char-equal)) results))))
-
-(test introspect-quicklisp-search-respects-limit
-  "introspect-quicklisp-search respects limit parameter"
-  (let ((results (cl-mcp-server.asdf-tools:introspect-quicklisp-search "cl" :limit 3)))
-    (is (<= (length results) 3))))
-
-(test format-quicklisp-search-results-output
-  "format-quicklisp-search-results produces readable output"
-  (let* ((results (cl-mcp-server.asdf-tools:introspect-quicklisp-search "json" :limit 3))
-         (formatted (cl-mcp-server.asdf-tools:format-quicklisp-search-results
-                     results "json")))
-    (is (search "json" formatted))))
+;;; NB: the introspect-quicklisp-search / format-quicklisp-search-results
+;;; tests lived here. Those functions were removed when the quicklisp-search
+;;; tool was reimplemented in cl-mcp-server.quicklisp-tools, which reports
+;;; install state and ranks results. Equivalent coverage (matching, limit,
+;;; readable output) is in tests/quicklisp-tools-tests.lisp.
 
 ;;; ==========================================================================
 ;;; load-file Tests (E.6)

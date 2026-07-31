@@ -132,8 +132,6 @@
    #:quicklisp-available-p
    #:introspect-quickload
    #:format-quickload-result
-   #:introspect-quicklisp-search
-   #:format-quicklisp-search-results
    ;; E.4: system-dependencies
    #:introspect-system-dependencies
    #:format-system-dependencies

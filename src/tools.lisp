@@ -613,11 +613,10 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                   (error (e)
                     (format nil "Error loading ~A: ~A" system-name e))))))
 
-  ;; NB: the old quicklisp-search was registered here. It returned bare system
-  ;; names with no install state and no ranking, and its "pattern" argument
-  ;; collided with the richer replacement registered earlier in this function
-  ;; (same tool name = last registration wins, silently). Removed in favour of
-  ;; the quicklisp-tools version, which takes "term" and reports install state.
+  ;; NB: quicklisp-search was registered here. It returned bare system names
+  ;; with no install state and no ranking; it is now provided by
+  ;; cl-mcp-server.quicklisp-tools, registered above, and takes "term"
+  ;; instead of "pattern".
 
   ;; load-file: Load a single Lisp file
   (cl-mcp:register-tool server "load-file"
