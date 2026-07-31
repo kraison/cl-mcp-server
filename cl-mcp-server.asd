@@ -43,5 +43,11 @@
                  (:file "profiling-tools-tests")
                  (:file "paren-tools-tests")
                  (:file "integration-tests"))))
+  ;; NB: the suite must be named by the symbol interned in the test package,
+  ;; not the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol
+  ;; identity, so the keyword silently matches nothing and run! reports
+  ;; "Didn't run anything...huh?" while exiting 0 -- green CI over 0 tests.
   :perform (asdf:test-op (o c)
-             (uiop:symbol-call :fiveam :run! :cl-mcp-server-tests)))
+             (unless (uiop:symbol-call :fiveam :run-all-tests
+                                       :summary :end)
+               (error "cl-mcp-server test suite failed"))))
