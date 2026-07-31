@@ -36,12 +36,12 @@ than a slow one, so this is deliberately short.")
 ;;; ==========================================================================
 
 (defstruct (swank-connection (:conc-name conn-))
-  target-name host port socket stream
+  socket stream
   (id-counter 0)
   (lock (bt:make-lock "swank-conn"))
   (output (make-string-output-stream)))
 
-(defun connect (host port &key target-name)
+(defun connect (host port)
   "Open a SWANK connection. Signals SWANK-ERROR when unreachable."
   (handler-case
       (let* ((socket (usocket:socket-connect
@@ -49,8 +49,7 @@ than a slow one, so this is deliberately short.")
                       :element-type 'character
                       :timeout *connect-timeout*))
              (stream (usocket:socket-stream socket)))
-        (make-swank-connection :target-name target-name :host host :port port
-                               :socket socket :stream stream))
+        (make-swank-connection :socket socket :stream stream))
     (error (e)
       (error 'swank-error
              :detail (format nil "cannot reach ~A:~D (~A)" host port

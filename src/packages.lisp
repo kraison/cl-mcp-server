@@ -296,6 +296,8 @@
 (defpackage #:cl-mcp-server.swank-protocol
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
+  ;; SWANK-ABORTED-CONDITION is read only by its own report method, so it
+  ;; stays internal.
   (:export
    #:connect
    #:disconnect
@@ -303,7 +305,6 @@
    #:swank-error
    #:swank-aborted
    #:swank-aborted-restarts
-   #:swank-aborted-condition
    #:*call-timeout*
    #:*connect-timeout*))
 

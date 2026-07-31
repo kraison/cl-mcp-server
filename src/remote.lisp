@@ -166,8 +166,7 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
     (if (and existing (cl-mcp-server.swank-protocol::connected-p existing))
         existing
         (let ((conn (cl-mcp-server.swank-protocol:connect
-                     (target-host target) (target-port target)
-                     :target-name name)))
+                     (target-host target) (target-port target))))
           (bt:with-lock-held (*lock*) (setf (gethash name *connections*) conn))
           conn))))
 
