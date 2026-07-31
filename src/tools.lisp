@@ -262,7 +262,81 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; Phase B: Enhanced Evaluation Tools
   ;; ========================================================================
 
-  ;; describe-generic-function: methods + EQL specializers for a GF
+  ;; ========================================================================
+  ;; Quicklisp: read-only, offline dist introspection
+  ;; ========================================================================
+
+  ;; quicklisp-dry-run: what would quickload actually do?
+  (cl-mcp:register-tool server "quicklisp-dry-run"
+   :description "Show exactly what (ql:quickload SYSTEM) would download, WITHOUT downloading anything. Reports the full transitive dependency tree, which systems are already installed, which would be fetched, and the total archive size. CALL THIS BEFORE quickload for any system you have not loaded before: quickload is an irreversible network action whose blast radius is otherwise invisible. Read-only and offline - it queries the local dist index."
+   :schema '(("type" . "object")
+             ("required" . ("system"))
+             ("properties" . (("system" . (("type" . "string")
+                                           ("description" . "Quicklisp system name")))))) 
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "system" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-ql-dry-run (ql-dry-run name))
+                  (values text error-p)))))
+
+  ;; quicklisp-system-info: everything the dist knows about one system
+  (cl-mcp:register-tool server "quicklisp-system-info"
+   :description "Get full Quicklisp metadata for a system: whether it is already installed, its direct dependencies (each marked installed or not), the release and project it comes from, archive size and URL, on-disk location, and sibling systems from the same release. Use this to evaluate a library before committing to it. Read-only and offline."
+   :schema '(("type" . "object")
+             ("required" . ("system"))
+             ("properties" . (("system" . (("type" . "string")
+                                           ("description" . "Quicklisp system name"))))))
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "system" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-ql-system-info (ql-system-info name))
+                  (values text error-p)))))
+
+  ;; quicklisp-search: ranked search with install state
+  (cl-mcp:register-tool server "quicklisp-search"
+   :description "Search Quicklisp for systems matching a term. Unlike a bare name list, this marks each result [installed] or [available], shows its release, and ranks real entry points above -test/-doc/subsystem noise. Use this to find the right system name before quicklisp-system-info or quickload."
+   :schema '(("type" . "object")
+             ("required" . ("term"))
+             ("properties" . (("term" . (("type" . "string")
+                                         ("description" . "Search term (matches system names and descriptions)")))
+                              ("limit" . (("type" . "integer")
+                                          ("description" . "Maximum results to show (default: 40)"))))))
+   :handler (lambda (args)
+              (let ((term (cdr (assoc "term" args :test #'string=)))
+                    (limit (cdr (assoc "limit" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-ql-search-results
+                     (ql-search-systems term :limit (or limit 40)))
+                  (values text error-p)))))
+
+  ;; quicklisp-who-depends-on: reverse dependencies
+  (cl-mcp:register-tool server "quicklisp-who-depends-on"
+   :description "List the Quicklisp systems that directly depend on a given system. Answers 'what would break if this changed?' and, when judging an unfamiliar library, 'is anything actually using this?' - a reasonable proxy for maturity. Read-only and offline."
+   :schema '(("type" . "object")
+             ("required" . ("system"))
+             ("properties" . (("system" . (("type" . "string")
+                                           ("description" . "Quicklisp system name")))
+                              ("limit" . (("type" . "integer")
+                                          ("description" . "Maximum results to show (default: 60)"))))))
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "system" args :test #'string=)))
+                    (limit (cdr (assoc "limit" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-ql-who-depends-on
+                     (ql-who-depends-on name :limit (or limit 60)))
+                  (values text error-p)))))
+
+  ;; quicklisp-dist-status: environment health
+  (cl-mcp:register-tool server "quicklisp-dist-status"
+   :description "Report the health of the local Quicklisp installation: client version, dist version, how many systems are available, how many releases are installed, and whether a newer dist exists. A stale dist explains many otherwise-confusing 'system not found' failures. Reports only - it never updates anything."
+   :schema `(("type" . "object")
+             ("properties" . ,(make-hash-table :test #'equal)))
+   :handler (lambda (args)
+              (declare (ignore args))
+              (multiple-value-bind (text error-p)
+                  (format-ql-dist-status (ql-dist-status))
+                (values text error-p))))
+
   (cl-mcp:register-tool server "describe-generic-function"
    :description "List every method of a generic function with its specializers and qualifiers, including EQL specializers. USE THIS BEFORE CALLING ANY GENERIC FUNCTION whose arguments select behaviour (an ALGORITHM, MODE, KIND or TYPE parameter): the lambda list alone cannot tell you which values are accepted, but the EQL specializers enumerate them exactly. Complements find-methods, which answers the dual question (what specializes on a CLASS)."
    :schema '(("type" . "object")
@@ -539,24 +613,11 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                   (error (e)
                     (format nil "Error loading ~A: ~A" system-name e))))))
 
-  ;; quicklisp-search: Search available systems
-  (cl-mcp:register-tool server "quicklisp-search"
-   :description "Search Quicklisp for available systems matching a pattern. Returns a list of system names that can be loaded with quickload."
-   :schema '(("type" . "object")
-             ("required" . ("pattern"))
-             ("properties" . (("pattern" . (("type" . "string")
-                                            ("description" . "Search pattern (case-insensitive substring)")))
-                              ("limit" . (("type" . "integer")
-                                          ("description" . "Maximum number of results (default: 30)"))))))
-   :handler (lambda (args)
-              (let ((pattern (cdr (assoc "pattern" args :test #'string=)))
-                    (limit (or (cdr (assoc "limit" args :test #'string=)) 30)))
-                (handler-case
-                    (format-quicklisp-search-results
-                     (introspect-quicklisp-search pattern :limit limit)
-                     pattern)
-                  (error (e)
-                    (format nil "Error: ~A" e))))))
+  ;; NB: the old quicklisp-search was registered here. It returned bare system
+  ;; names with no install state and no ranking, and its "pattern" argument
+  ;; collided with the richer replacement registered earlier in this function
+  ;; (same tool name = last registration wins, silently). Removed in favour of
+  ;; the quicklisp-tools version, which takes "term" and reports install state.
 
   ;; load-file: Load a single Lisp file
   (cl-mcp:register-tool server "load-file"

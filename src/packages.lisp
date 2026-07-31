@@ -219,6 +219,32 @@
    #:find-definition-source
    #:format-definition-source))
 
+(defpackage #:cl-mcp-server.quicklisp-tools
+  (:use #:cl)
+  (:export
+   ;; NB: QUICKLISP-AVAILABLE-P is deliberately NOT exported here --
+   ;; cl-mcp-server.asdf-tools already exports a function of that name and
+   ;; tools.lisp :uses both packages, so exporting it would be a name
+   ;; conflict. It remains internal and callable as
+   ;; cl-mcp-server.quicklisp-tools::quicklisp-available-p.
+   #:quicklisp-unavailable
+   ;; NB: names are ql-prefixed. cl-mcp-server.asdf-tools already exports
+   ;; SYSTEM-INFO / FORMAT-SYSTEM-INFO, and tools.lisp :uses both packages,
+   ;; so unprefixed names here would be a package conflict at load time.
+   #:ql-dry-run
+   #:format-ql-dry-run
+   #:ql-system-info
+   #:format-ql-system-info
+   #:ql-search-systems
+   #:format-ql-search-results
+   #:ql-who-depends-on
+   #:format-ql-who-depends-on
+   #:ql-dist-status
+   #:format-ql-dist-status
+   #:collect-dependencies
+   #:system-installed-p
+   #:human-bytes))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
@@ -229,7 +255,8 @@
         #:cl-mcp-server.telos-tools
         #:cl-mcp-server.paren-tools
         #:cl-mcp-server.file-tools
-        #:cl-mcp-server.hyperspec)
+        #:cl-mcp-server.hyperspec
+        #:cl-mcp-server.quicklisp-tools)
   (:export
    #:define-builtin-tools
    #:get-usage-guide-content))
