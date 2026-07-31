@@ -61,6 +61,7 @@
                  (:file "hyperspec-tests")
                  (:file "quicklisp-tools-tests")
                  (:file "telos-tools-tests")
+                 (:file "remote-tests")
                  (:file "integration-tests"))))
   ;; NB: the suite must be named by the symbol interned in the test package,
   ;; not the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol
