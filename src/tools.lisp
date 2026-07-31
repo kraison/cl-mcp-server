@@ -270,6 +270,106 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; Live conditions: suspend on error so restarts can be invoked
   ;; ========================================================================
 
+  ;; ========================================================================
+  ;; Inspector and the remaining SLIME primitives
+  ;; ========================================================================
+
+  (cl-mcp:register-tool server "inspect-object"
+   :description "Inspect a Lisp VALUE: its type, printed form, and parts (CLOS slots, structure slots, list/array elements, hash-table entries, symbol cells). Each part comes back with a [handle] you can pass to this tool again to walk deeper -- this is SLIME's inspector, and the navigation is the point. Supply `code` to evaluate an expression and inspect its result, or `handle` to descend into a part from a previous inspection. Use this when describe-symbol is the wrong question: describe-symbol is about a NAME, inspect-object is about a VALUE."
+   :schema '(("type" . "object")
+             ("properties" . (("code" . (("type" . "string")
+                                         ("description" . "Expression to evaluate and inspect")))
+                              ("handle" . (("type" . "integer")
+                                           ("description" . "Handle of a part from an earlier inspection")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package context (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (handle (cdr (assoc "handle" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.inspector:format-inspection
+                     (cond (handle (cl-mcp-server.inspector:inspect-part handle))
+                           (code (cl-mcp-server.inspector:inspect-expression
+                                  code :package pkg))
+                           (t (cl-mcp-server.inspector::make-inspection
+                               :error-text "Supply either `code` or `handle`."))))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "trace-call"
+   :description "Evaluate a form with the named functions traced, and return the trace transcript alongside the result. Tracing is scoped to this one evaluation and removed afterwards, so it cannot leak output into later calls. Use this to answer 'what did this actually call, with what arguments, returning what?' without reasoning about it."
+   :schema '(("type" . "object")
+             ("required" . ("code" "functions"))
+             ("properties" . (("code" . (("type" . "string")
+                                         ("description" . "Form to evaluate while tracing")))
+                              ("functions" . (("type" . "array")
+                                              ("items" . (("type" . "string")))
+                                              ("description" . "Function names to trace")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package context (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (fns (cdr (assoc "functions" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.trace-tools:format-trace-result
+                     (cl-mcp-server.trace-tools:call-with-trace
+                      code (if (listp fns) fns (list fns)) :package pkg))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "macrostep"
+   :description "Expand a macro form ONE STEP AT A TIME, showing every intermediate stage. Unlike macroexpand-form, which gives either a single step or the fully-expanded result, this shows the chain -- which is what you need when a macro expands into other macros and the final expansion is unreadable."
+   :schema '(("type" . "object")
+             ("required" . ("code"))
+             ("properties" . (("code" . (("type" . "string")
+                                         ("description" . "Macro form to step through")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package context (default: CL-USER)")))
+                              ("max-steps" . (("type" . "integer")
+                                              ("description" . "Stop after this many expansions (default: 10)"))))))
+   :handler (lambda (args)
+              (let ((code (cdr (assoc "code" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=)))
+                    (max (cdr (assoc "max-steps" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.trace-tools:format-macrostep
+                     (cl-mcp-server.trace-tools:macrostep
+                      code :package pkg :max-steps (or max 10)))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "who-specializes"
+   :description "List every method specialized on a class, across all generic functions -- the inverse of find-methods. Use this to see the full protocol a class participates in, including writer methods like (SETF FOO)."
+   :schema '(("type" . "object")
+             ("required" . ("class"))
+             ("properties" . (("class" . (("type" . "string")
+                                          ("description" . "Class name")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package name (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let ((cls (cdr (assoc "class" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.trace-tools:format-who-specializes
+                     (cl-mcp-server.trace-tools:who-specializes cls :package pkg))
+                  (values text error-p)))))
+
+  (cl-mcp:register-tool server "disassemble-function"
+   :description "Show the compiled machine code for a function. Use when reasoning about what the compiler actually did -- whether a call was inlined, whether a generic arithmetic path was taken, whether a type declaration had the intended effect."
+   :schema '(("type" . "object")
+             ("required" . ("name"))
+             ("properties" . (("name" . (("type" . "string")
+                                         ("description" . "Function name")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package name (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "name" args :test #'string=)))
+                    (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (cl-mcp-server.trace-tools:format-disassembly
+                     (cl-mcp-server.trace-tools:disassemble-function
+                      name :package pkg))
+                  (values text error-p)))))
+
   (cl-mcp:register-tool server "evaluate-with-restarts"
    :description "Evaluate Common Lisp code; if it signals, SUSPEND the condition live instead of unwinding, and report the available restarts. Unlike evaluate-lisp -- which reports restarts only after the stack is gone -- the condition stays alive and its restarts can actually be invoked with invoke-restart. Use this when you want SLIME-style recovery: CONTINUE past a cerror and the computation RESUMES in place rather than restarting. Suspensions expire automatically."
    :schema '(("type" . "object")

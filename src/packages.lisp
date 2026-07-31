@@ -264,6 +264,34 @@
    #:*suspension-timeout*
    #:*max-suspensions*))
 
+(defpackage #:cl-mcp-server.inspector
+  (:use #:cl)
+  (:local-nicknames (#:bt #:bordeaux-threads))
+  (:export
+   #:inspect-object
+   #:inspect-expression
+   #:inspect-part
+   #:format-inspection
+   #:clear-registry
+   #:registry-count
+   #:object-parts
+   #:*max-parts*
+   #:*registry-limit*))
+
+(defpackage #:cl-mcp-server.trace-tools
+  (:use #:cl)
+  (:export
+   #:call-with-trace
+   #:format-trace-result
+   #:trace-functions
+   #:untrace-functions
+   #:disassemble-function
+   #:format-disassembly
+   #:macrostep
+   #:format-macrostep
+   #:who-specializes
+   #:format-who-specializes))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
