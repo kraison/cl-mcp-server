@@ -149,6 +149,12 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
         (remove target-name *ledger* :key #'entry-target :test-not #'equal)
         (copy-list *ledger*))))
 
+(defun entry-time-string (entry)
+  "HH:MM:SS for ENTRY. An audit trail without times cannot answer when."
+  (multiple-value-bind (sec min hour) (decode-universal-time
+                                       (entry-timestamp entry))
+    (format nil "~2,'0D:~2,'0D:~2,'0D" hour min sec)))
+
 ;;; ==========================================================================
 ;;; Connection management
 ;;; ==========================================================================

@@ -310,6 +310,8 @@
 (defpackage #:cl-mcp-server.remote
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
+  ;; CLASSIFY-FORM and TIER-ALLOWED-P stay internal: they are the guts of
+  ;; REMOTE-EVAL, not an interface anything outside calls.
   (:export
    #:register-target
    #:find-target
@@ -318,12 +320,10 @@
    #:target-host
    #:target-port
    #:target-mode
-   #:classify-form
-   #:tier-allowed-p
    #:remote-eval
    #:close-connection
    #:ledger-for
-   #:entry-timestamp
+   #:entry-time-string
    #:entry-target
    #:entry-tier
    #:entry-form

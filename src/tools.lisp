@@ -373,7 +373,8 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                       (format s "~D remote call~:P~@[ to ~A~]:~%~%"
                               (length entries) tg)
                       (dolist (e entries)
-                        (format s "  ~12A ~10A ~A~%    ~A~@[~%    ~A~]~%"
+                        (format s "  ~A  ~12A ~10A ~A~%    ~A~@[~%    ~A~]~%"
+                                (cl-mcp-server.remote:entry-time-string e)
                                 (string-downcase
                                  (cl-mcp-server.remote:entry-outcome e))
                                 (string-downcase
