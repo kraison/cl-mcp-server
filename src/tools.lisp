@@ -287,14 +287,12 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
               (let ((code (cdr (assoc "code" args :test #'string=)))
                     (handle (cdr (assoc "handle" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.inspector:format-inspection
-                     (cond (handle (cl-mcp-server.inspector:inspect-part handle))
-                           (code (cl-mcp-server.inspector:inspect-expression
-                                  code :package pkg))
-                           (t (cl-mcp-server.inspector::make-inspection
-                               :error-text "Supply either `code` or `handle`."))))
-                  (values text error-p)))))
+                (cl-mcp-server.inspector:format-inspection
+                 (cond (handle (cl-mcp-server.inspector:inspect-part handle))
+                       (code (cl-mcp-server.inspector:inspect-expression
+                              code :package pkg))
+                       (t (cl-mcp-server.inspector::make-inspection
+                           :error-text "Supply either `code` or `handle`.")))))))
 
   (cl-mcp:register-tool server "trace-call"
    :description "Evaluate a form with the named functions traced, and return the trace transcript alongside the result. Tracing is scoped to this one evaluation and removed afterwards, so it cannot leak output into later calls. Use this to answer 'what did this actually call, with what arguments, returning what?' without reasoning about it."
@@ -311,11 +309,9 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
               (let ((code (cdr (assoc "code" args :test #'string=)))
                     (fns (cdr (assoc "functions" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.trace-tools:format-trace-result
-                     (cl-mcp-server.trace-tools:call-with-trace
-                      code (if (listp fns) fns (list fns)) :package pkg))
-                  (values text error-p)))))
+                (cl-mcp-server.trace-tools:format-trace-result
+                 (cl-mcp-server.trace-tools:call-with-trace
+                  code (if (listp fns) fns (list fns)) :package pkg)))))
 
   (cl-mcp:register-tool server "macrostep"
    :description "Expand a macro form ONE STEP AT A TIME, showing every intermediate stage. Unlike macroexpand-form, which gives either a single step or the fully-expanded result, this shows the chain -- which is what you need when a macro expands into other macros and the final expansion is unreadable."
@@ -331,11 +327,9 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
               (let ((code (cdr (assoc "code" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=)))
                     (max (cdr (assoc "max-steps" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.trace-tools:format-macrostep
-                     (cl-mcp-server.trace-tools:macrostep
-                      code :package pkg :max-steps (or max 10)))
-                  (values text error-p)))))
+                (cl-mcp-server.trace-tools:format-macrostep
+                 (cl-mcp-server.trace-tools:macrostep
+                  code :package pkg :max-steps (or max 10))))))
 
   (cl-mcp:register-tool server "who-specializes"
    :description "List every method specialized on a class, across all generic functions -- the inverse of find-methods. Use this to see the full protocol a class participates in, including writer methods like (SETF FOO)."
@@ -348,10 +342,8 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let ((cls (cdr (assoc "class" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.trace-tools:format-who-specializes
-                     (cl-mcp-server.trace-tools:who-specializes cls :package pkg))
-                  (values text error-p)))))
+                (cl-mcp-server.trace-tools:format-who-specializes
+                 (cl-mcp-server.trace-tools:who-specializes cls :package pkg)))))
 
   (cl-mcp:register-tool server "disassemble-function"
    :description "Show the compiled machine code for a function. Use when reasoning about what the compiler actually did -- whether a call was inlined, whether a generic arithmetic path was taken, whether a type declaration had the intended effect."
@@ -364,11 +356,9 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let ((name (cdr (assoc "name" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.trace-tools:format-disassembly
-                     (cl-mcp-server.trace-tools:disassemble-function
-                      name :package pkg))
-                  (values text error-p)))))
+                (cl-mcp-server.trace-tools:format-disassembly
+                 (cl-mcp-server.trace-tools:disassemble-function
+                  name :package pkg)))))
 
   (cl-mcp:register-tool server "evaluate-with-restarts"
    :description "Evaluate Common Lisp code; if it signals, SUSPEND the condition live instead of unwinding, and report the available restarts. Unlike evaluate-lisp -- which reports restarts only after the stack is gone -- the condition stays alive and its restarts can actually be invoked with invoke-restart. Use this when you want SLIME-style recovery: CONTINUE past a cerror and the computation RESUMES in place rather than restarting. Suspensions expire automatically."
@@ -381,11 +371,9 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let ((code (cdr (assoc "code" args :test #'string=)))
                     (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.restarts:format-eval-outcome
-                     (cl-mcp-server.restarts:evaluate-suspendable
-                      code :package pkg))
-                  (values text error-p)))))
+                (cl-mcp-server.restarts:format-eval-outcome
+                 (cl-mcp-server.restarts:evaluate-suspendable
+                  code :package pkg)))))
 
   (cl-mcp:register-tool server "invoke-restart"
    :description "Choose a restart on a suspended evaluation (see evaluate-with-restarts). Identify the restart by index or name. Restarts that prompt for a value (USE-VALUE, STORE-VALUE and friends) REQUIRE the `value` argument -- invoking one without a value would re-enter the debugger and wedge the worker, so it is refused. Returns whatever the resumed evaluation goes on to produce."
@@ -403,15 +391,13 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                                           ("description" . "Abort the suspended evaluation instead of choosing a restart"))))))
    :handler (lambda (args)
               (flet ((arg (k) (cdr (assoc k args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (cl-mcp-server.restarts:format-eval-outcome
-                     (cl-mcp-server.restarts:resume-suspension
-                      (arg "suspension-id")
-                      :restart-index (arg "restart-index")
-                      :restart-name (arg "restart-name")
-                      :value (arg "value")
-                      :abort (eq (arg "abort") t)))
-                  (values text error-p)))))
+                (cl-mcp-server.restarts:format-eval-outcome
+                 (cl-mcp-server.restarts:resume-suspension
+                  (arg "suspension-id")
+                  :restart-index (arg "restart-index")
+                  :restart-name (arg "restart-name")
+                  :value (arg "value")
+                  :abort (eq (arg "abort") t))))))
 
   (cl-mcp:register-tool server "list-suspensions"
    :description "List evaluations currently suspended awaiting a restart decision, with their conditions and ages. Use this to find a suspension id you have lost track of, or to check whether something is still holding a worker thread."
@@ -419,9 +405,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
              ("properties" . ,(make-hash-table :test #'equal)))
    :handler (lambda (args)
               (declare (ignore args))
-              (multiple-value-bind (text error-p)
-                  (cl-mcp-server.restarts:format-suspension-list)
-                (values text error-p))))
+              (cl-mcp-server.restarts:format-suspension-list)))
 
   (cl-mcp:register-tool server "abandon-suspension"
    :description "Abort a suspended evaluation and release its worker thread. Use when you do not want any of the offered restarts, or to clean up a suspension you no longer care about."
@@ -442,9 +426,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                                            ("description" . "Quicklisp system name")))))) 
    :handler (lambda (args)
               (let ((name (cdr (assoc "system" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-ql-dry-run (ql-dry-run name))
-                  (values text error-p)))))
+                (format-ql-dry-run (ql-dry-run name)))))
 
   ;; quicklisp-system-info: everything the dist knows about one system
   (cl-mcp:register-tool server "quicklisp-system-info"
@@ -455,9 +437,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                                            ("description" . "Quicklisp system name"))))))
    :handler (lambda (args)
               (let ((name (cdr (assoc "system" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-ql-system-info (ql-system-info name))
-                  (values text error-p)))))
+                (format-ql-system-info (ql-system-info name)))))
 
   ;; quicklisp-search: ranked search with install state
   (cl-mcp:register-tool server "quicklisp-search"
@@ -471,10 +451,8 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let ((term (cdr (assoc "term" args :test #'string=)))
                     (limit (cdr (assoc "limit" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-ql-search-results
-                     (ql-search-systems term :limit (or limit 40)))
-                  (values text error-p)))))
+                (format-ql-search-results
+                 (ql-search-systems term :limit (or limit 40))))))
 
   ;; quicklisp-who-depends-on: reverse dependencies
   (cl-mcp:register-tool server "quicklisp-who-depends-on"
@@ -488,10 +466,8 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let ((name (cdr (assoc "system" args :test #'string=)))
                     (limit (cdr (assoc "limit" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-ql-who-depends-on
-                     (ql-who-depends-on name :limit (or limit 60)))
-                  (values text error-p)))))
+                (format-ql-who-depends-on
+                 (ql-who-depends-on name :limit (or limit 60))))))
 
   ;; quicklisp-dist-status: environment health
   (cl-mcp:register-tool server "quicklisp-dist-status"
@@ -500,9 +476,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
              ("properties" . ,(make-hash-table :test #'equal)))
    :handler (lambda (args)
               (declare (ignore args))
-              (multiple-value-bind (text error-p)
-                  (format-ql-dist-status (ql-dist-status))
-                (values text error-p))))
+              (format-ql-dist-status (ql-dist-status))))
 
   (cl-mcp:register-tool server "describe-generic-function"
    :description "List every method of a generic function with its specializers and qualifiers, including EQL specializers. USE THIS BEFORE CALLING ANY GENERIC FUNCTION whose arguments select behaviour (an ALGORITHM, MODE, KIND or TYPE parameter): the lambda list alone cannot tell you which values are accepted, but the EQL specializers enumerate them exactly. Complements find-methods, which answers the dual question (what specializes on a CLASS)."
@@ -517,9 +491,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                      (pkg (cdr (assoc "package" args :test #'string=)))
                      (info (generic-function-info name
                                                   :package (or pkg "CL-USER"))))
-                (multiple-value-bind (text error-p)
-                    (format-generic-function-info info)
-                  (values text error-p)))))
+                (format-generic-function-info info))))
 
   ;; hyperspec-lookup: symbol -> CLHS URL, resolved from a local table
   (cl-mcp:register-tool server "hyperspec-lookup"
@@ -530,9 +502,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                                          ("description" . "Standard CL symbol name, e.g. \"mapcar\" or \"with-open-file\""))))))
    :handler (lambda (args)
               (let ((name (cdr (assoc "name" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-hyperspec-result (lookup-hyperspec name))
-                  (values text error-p)))))
+                (format-hyperspec-result (lookup-hyperspec name)))))
 
   ;; find-definition-source: jump to definition
   (cl-mcp:register-tool server "find-definition-source"
@@ -546,10 +516,8 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
    :handler (lambda (args)
               (let* ((name (cdr (assoc "name" args :test #'string=)))
                      (pkg (cdr (assoc "package" args :test #'string=))))
-                (multiple-value-bind (text error-p)
-                    (format-definition-source
-                     (find-definition-source name :package (or pkg "CL-USER")))
-                  (values text error-p)))))
+                (format-definition-source
+                 (find-definition-source name :package (or pkg "CL-USER"))))))
 
   (cl-mcp:register-tool server "write-lisp-file"
    :description "Write Common Lisp source to a file ATOMICALLY AND SAFELY: the content is parsed first and the file is written ONLY if it is syntactically valid, then compiled to report warnings and type errors. PREFER THIS over any shell/editor tool for creating or overwriting .lisp files -- it cannot leave a malformed file on disk, it keeps a .bak of the previous version, and it returns compiler diagnostics in the same call. Returns isError:true if the content is invalid (nothing written) or if compilation fails."
@@ -572,8 +540,7 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                                (arg "content" "")
                                :compile-check (not (eq (arg "compile-check" t) :false))
                                :backup (not (eq (arg "backup" t) :false)))))
-                  (multiple-value-bind (text error-p) (format-write-result result)
-                    (values text error-p))))))
+                  (format-write-result result)))))
 
   ;; compile-form: Compile code without evaluating it
   (cl-mcp:register-tool server "compile-form"
