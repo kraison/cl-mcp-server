@@ -267,19 +267,19 @@ result carries both halves and the :write-string channel is usually empty."
     (string-trim " " (subseq raw start))))
 
 (defun %nth-token (raw n)
-  "Nth whitespace-delimited token, ignoring the leading paren."
-  (let ((tokens (%tokenize raw)))
-    (nth n tokens)))
-
-(defun %tokenize (raw)
-  (let ((clean (substitute #\Space #\( (substitute #\Space #\) raw))))
-    (remove "" (%split clean #\Space) :test #'string=)))
-
-(defun %split (string char)
-  (loop with start = 0
-        for pos = (position char string :start start)
-        collect (subseq string start pos)
-        while pos do (setf start (1+ pos))))
+  "Nth whitespace/paren-delimited token of RAW, zero-based."
+  (let ((start nil) (index 0))
+    (flet ((delimiterp (ch) (member ch '(#\Space #\( #\) #\Newline #\Tab))))
+      (loop for i from 0 to (length raw)
+            for at-end = (= i (length raw))
+            for delim = (or at-end (delimiterp (char raw i)))
+            do (cond ((and (not delim) (null start)) (setf start i))
+                     ((and delim start)
+                      (when (= index n)
+                        (return-from %nth-token (subseq raw start i)))
+                      (incf index)
+                      (setf start nil)))))
+    nil))
 
 (defun %collect-restart-names (raw)
   "Restart names from a (:debug ...) message, in offer order."
