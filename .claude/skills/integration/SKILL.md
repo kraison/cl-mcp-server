@@ -8,7 +8,24 @@ type: integration
 
 # cl-mcp-server — Integration Skill
 
-A running SBCL process with a persistent REPL exposed as 36 MCP tools. Definitions accumulate across calls — `defun` in call 1 is callable in call 2.
+A running SBCL process with a persistent REPL exposed as 45 MCP tools. Definitions accumulate across calls — `defun` in call 1 is callable in call 2.
+
+## Rule 0: don't guess — ask the image
+
+Before calling any function you have not already called in this session, look
+up its signature. Guessing *feels* cheaper than a tool call; it isn't. A wrong
+guess costs an error, a re-read and a retry, and a silently wrong guess costs
+much more.
+
+| Before you... | Call |
+|---------------|------|
+| call an unfamiliar function | `describe-symbol` |
+| call a generic function with a mode/algorithm/kind argument | `describe-generic-function` |
+| rely on a standard CL operator's edge-case behaviour | `hyperspec-lookup` |
+| grep for where something is defined | `find-definition-source` |
+| write a `.lisp` file | `write-lisp-file` |
+| `quickload` something new | `quicklisp-dry-run` |
+| guess whether a name exists | `apropos-search` |
 
 ## Quick Start
 
@@ -192,6 +209,6 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 
 ## Detailed Reference
 
-- **All 36 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
+- **All 45 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
 - **Architecture**: `docs/explanation/architecture.md`
 - **Canon specifications**: `canon/features/`

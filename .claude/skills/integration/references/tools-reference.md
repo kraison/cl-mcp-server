@@ -1,6 +1,6 @@
 # cl-mcp-server Tools Reference
 
-All 36 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
+All 45 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
 
 ## Workflow
 
@@ -77,6 +77,24 @@ Check syntax without evaluating. Safe — no side effects.
 
 Returns: "Syntax OK" or error description with position.
 
+### write-lisp-file
+
+Write Common Lisp source to a file atomically: content is parsed first and
+written **only if it is syntactically valid**, then compiled to report warnings
+and type errors. Keeps a `.bak` of any previous version. Prefer this over a
+shell or editor tool for `.lisp` files — it cannot leave a malformed file on
+disk.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | yes | Absolute path to write |
+| `content` | string | yes | Full source text |
+| `compile-check` | boolean | no | Compile after writing (default: true) |
+| `backup` | boolean | no | Keep a `.bak` copy (default: true) |
+
+Returns `isError: true` if the content is invalid (nothing written) or if
+compilation fails.
+
 ---
 
 ## Code Introspection
@@ -108,6 +126,31 @@ Expand a macro form.
 |-------|------|----------|-------------|
 | `form` | string | yes | Macro form to expand |
 | `full` | bool | no | Full expansion (macroexpand-all) vs one step |
+
+### find-definition-source
+
+Find the file and line where a symbol is defined — functions, macros, generic
+functions, individual methods, classes, structures, types, conditions and
+variables. Use instead of grepping the tree: it asks the running image.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `name` | string | yes |
+| `package` | string | no |
+
+Note: SBCL records the enclosing toplevel form's offset, so a definition
+preceded by comments resolves a few lines high. Definitions loaded from a fasl
+report the file only.
+
+### hyperspec-lookup
+
+Get the Common Lisp HyperSpec URL for a standard CL symbol. The symbol→page
+index ships locally, so lookup needs no network. Misses return near-match
+suggestions.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `name` | string | yes |
 
 ### who-calls
 
@@ -148,6 +191,22 @@ All methods specialized on a class.
 |-------|------|----------|
 | `name` | string | yes |
 | `package` | string | no |
+
+### describe-generic-function
+
+List every method of a generic function with its specializers and qualifiers,
+**including EQL specializers**. Call this before invoking any generic function
+whose argument selects behaviour (an `ALGORITHM`, `MODE`, `KIND` or `TYPE`
+parameter) — the lambda list cannot tell you which values are accepted, but the
+EQL specializers enumerate them exactly.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `name` | string | yes |
+| `package` | string | no |
+
+Complements `find-methods`, which answers the dual question (what specializes
+on a given class).
 
 ---
 
@@ -262,12 +321,51 @@ Load a system via Quicklisp. Downloads automatically if not installed.
 
 ### quicklisp-search
 
-Search Quicklisp for systems matching a pattern.
+Search Quicklisp for systems matching a term. Results are ranked (exact match
+first, `-test`/`-doc`/subsystems last) and marked `[installed]`/`[available]`.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `pattern` | string | yes | |
-| `limit` | integer | no | Max results (default: 30) |
+| `term` | string | yes | Matches system names and descriptions |
+| `limit` | integer | no | Max results (default: 40) |
+
+> Renamed from `pattern` in the previous implementation.
+
+### quicklisp-dry-run
+
+Show exactly what `quickload` would download, **without downloading anything**.
+Reports the transitive dependency tree, what is already installed, what would
+be fetched, and the total archive size. Read-only and offline.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `system` | string | yes |
+
+### quicklisp-system-info
+
+Full dist metadata for one system: install state, direct dependencies (each
+marked installed or not), release and project, archive size and URL, on-disk
+location, and sibling systems from the same release.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `system` | string | yes |
+
+### quicklisp-who-depends-on
+
+Systems in the dist that directly require the given system.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `system` | string | yes | |
+| `limit` | integer | no | Max results (default: 60) |
+
+### quicklisp-dist-status
+
+Client and dist versions, systems available, releases installed, and whether a
+newer dist exists. Reports only; never updates anything.
+
+_No parameters._
 
 ---
 

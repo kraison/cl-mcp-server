@@ -209,6 +209,88 @@ Systems may emit warnings during compilation. These are usually benign but worth
 
 ---
 
+## Read-only dist introspection
+
+These five tools query the **local** Quicklisp dist index. They never download,
+install or update anything, which makes them safe to call speculatively — the
+point being that a tool which might fetch 40 MB does not get used to answer a
+quick question, and a tool that is not used does not stop you guessing.
+
+### quicklisp-dry-run
+
+Show exactly what `quickload` would download, without downloading it.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| system | string | Yes | System name |
+
+Reports the transitive dependency tree, how much is already installed, what
+would be fetched, and the total archive size. Call it before quickloading
+anything unfamiliar: `quickload` is an irreversible network action whose blast
+radius is otherwise invisible.
+
+```
+quickload cl-telegram-bot
+
+  71 systems in the dependency tree
+  58 already installed
+  13 would be downloaded (12 releases, 841.8 KB)
+
+Would download:
+  40ants-asdf-system
+  arrows
+  ...
+```
+
+### quicklisp-system-info
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| system | string | Yes | System name |
+
+Install state, direct dependencies (each marked installed or not), release and
+project, archive size and URL, on-disk location, and sibling systems from the
+same release.
+
+### quicklisp-search
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| term | string | Yes | Matches names and descriptions |
+| limit | integer | No | Max results (default: 40) |
+
+Results are ranked — exact match first, `-test`/`-doc`/subsystems last — and
+each is marked `[installed]` or `[available]`.
+
+> **Changed:** the parameter was `pattern` in earlier versions; it is now
+> `term`. The previous implementation returned bare names with no install
+> state and no ranking.
+
+### quicklisp-who-depends-on
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| system | string | Yes | System name |
+| limit | integer | No | Max results (default: 60) |
+
+Systems that directly require the given system. Useful both for "what breaks if
+this changes?" and, when judging an unfamiliar library, "is anything actually
+using this?"
+
+### quicklisp-dist-status
+
+_No parameters._
+
+Client version, dist version, systems available, releases installed, and
+whether a newer dist exists. A stale dist explains many otherwise-confusing
+"system not found" failures.
+
+Reporting only — it will not update anything. `update-dist`, `update-client`
+and `uninstall` are deliberately not exposed: they are slow, network-bound and
+occasionally destructive, and are left for a human to run.
+
+---
+
 ## See Also
 
 - [evaluate-lisp](evaluate-lisp.md) - Execute Lisp code with loaded systems

@@ -35,7 +35,7 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 - **NEW**: Paren matching tools -- the agents struggle with lots of parens
 - **Persistent REPL**: Define functions once, use them repeatedly in the same session
-- **37 tools**: full-on REPL power for evaluation, introspection, profiling, and more
+- **45 tools**: full-on REPL power for evaluation, introspection, profiling, and more
 - **Rich Error Reporting**: Get concise default errors, with detailed backtraces and condition information on demand
 - **Stream Separation**: Clearly distinguish between return values, printed output, and warnings
 - **Safe Execution**: Server never crashes—all user code errors are caught and reported
@@ -187,7 +187,7 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### Available Tools
 
-CL-MCP-Server provides **37 tools** organized into categories:
+CL-MCP-Server provides **45 tools** organized into categories:
 
 #### Workflow & Configuration
 - **`get-usage-guide`** - Get the recommended workflow for effective REPL-assisted development
@@ -201,6 +201,7 @@ CL-MCP-Server provides **37 tools** organized into categories:
 #### Syntax & Validation
 - **`validate-syntax`** - Check code syntax without evaluation (use before saving files)
 - **`match-paren`** - Find matching parentheses with line/column context
+- **`write-lisp-file`** - Validate, write, and compile a source file in one atomic call
 
 #### Code Introspection
 - **`describe-symbol`** - Get comprehensive information about symbols (functions, variables, classes)
@@ -208,10 +209,13 @@ CL-MCP-Server provides **37 tools** organized into categories:
 - **`who-calls`** - Find functions that call a specified function
 - **`who-references`** - Find code that references a specified variable
 - **`macroexpand-form`** - Expand macros to understand their transformations
+- **`find-definition-source`** - Locate the file and line where a symbol is defined
+- **`hyperspec-lookup`** - Get the HyperSpec URL for a standard Common Lisp symbol
 
 #### CLOS Intelligence
 - **`class-info`** - Inspect classes, slots, superclasses, and inheritance hierarchies
 - **`find-methods`** - Find all methods specialized on a given class
+- **`describe-generic-function`** - List a generic function's methods, including EQL specializers
 
 #### Error Intelligence
 - **`describe-last-error`** - Get detailed information about the most recent error
@@ -227,7 +231,11 @@ CL-MCP-Server provides **37 tools** organized into categories:
 
 #### Quicklisp Integration
 - **`quickload`** - Load systems via Quicklisp with automatic dependency resolution
-- **`quicklisp-search`** - Search Quicklisp for available systems
+- **`quicklisp-search`** - Search Quicklisp, ranked and marked `[installed]`/`[available]`
+- **`quicklisp-dry-run`** - Show what a `quickload` would download, without downloading it
+- **`quicklisp-system-info`** - Dependencies, install state, release, archive size and location
+- **`quicklisp-who-depends-on`** - Find systems that depend on a given system
+- **`quicklisp-dist-status`** - Client/dist versions, system counts, available updates
 
 #### Performance Profiling
 - **`profile-code`** - Statistical profiling for CPU, wall-clock time, or memory allocation
@@ -308,7 +316,7 @@ sbcl --load cl-mcp-server.asd \
 
 **Version**: 0.3.0
 
-**Status**: Alpha (human testing required). The core functionality is working and tested with 37 tools available. The API may change as we gather user feedback.
+**Status**: Alpha (human testing required). The core functionality is working and tested with 45 tools available. The API may change as we gather user feedback.
 
 ## Contributing
 
