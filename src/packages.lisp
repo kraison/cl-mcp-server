@@ -267,13 +267,14 @@
 (defpackage #:cl-mcp-server.inspector
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
+  ;; CLEAR-REGISTRY and REGISTRY-COUNT stay internal: useful at a REPL via
+  ;; `::`, but no tool reaches them, and an exported name with no consumer is
+  ;; API we would have to keep.
   (:export
    #:inspect-object
    #:inspect-expression
    #:inspect-part
    #:format-inspection
-   #:clear-registry
-   #:registry-count
    #:object-parts
    #:*max-parts*
    #:*registry-limit*))
