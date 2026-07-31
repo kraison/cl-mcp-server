@@ -113,7 +113,8 @@ The `text` field contains:
 - `[stdout]` appears only if `*standard-output*` received output
 - `[stderr]` appears only if `*error-output*` received output
 - `[warnings]` appears only if warnings were signaled
-- `=> value` lines appear for each return value (multiple values)
+- `=> value` lines appear for each return value only when no warnings were signaled
+- When warnings are present, return values are suppressed to keep MCP responses diagnostic-focused
 
 ### Examples
 
@@ -156,8 +157,6 @@ HELLO
 ```
 [warnings]
 STYLE-WARNING: The variable X is defined but never used.
-
-=> FOO
 ```
 
 ## Error Response
@@ -169,7 +168,7 @@ When evaluation signals an unhandled error:
   "content": [
     {
       "type": "text",
-      "text": "[ERROR] {CONDITION-TYPE}\n{message}\n\n[Backtrace]\n{frames}"
+      "text": "[ERROR] {CONDITION-TYPE}\n{message}"
     }
   ],
   "isError": true
@@ -177,6 +176,9 @@ When evaluation signals an unhandled error:
 ```
 
 **Key**: `isError: true` distinguishes errors from success.
+Backtraces are captured for the session but omitted from the immediate
+`evaluate-lisp` response to reduce MCP token usage. Use `describe-last-error`
+or `get-backtrace` when detailed diagnostics are needed.
 
 ### Error Text Format
 
@@ -403,9 +405,10 @@ Definitions and bindings made in one evaluation **persist** in subsequent evalua
 | Local bindings (`let`, `flet`) | ✗ |
 | Dynamic bindings | ✗ |
 
-## Backtrace Format
+## Backtrace Access
 
-When an error occurs, a backtrace is included:
+When an error occurs, a backtrace is captured for the session but omitted from
+the immediate response. Request it explicitly with `get-backtrace`:
 
 ```
 [Backtrace]

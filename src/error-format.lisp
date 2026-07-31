@@ -221,8 +221,12 @@ Returns a plist with:
                          (or (getf r :name) "unnamed")
                          (getf r :description)))
         (terpri s)))
-    ;; Backtrace section (structured)
-    (let ((bt (getf error-info :backtrace)))
+    ;; Backtrace section (structured). Honour *print-backtrace-p* so callers
+    ;; that suppress backtraces in the immediate response (see
+    ;; *include-backtrace-in-evaluate-response*) get that on this path too;
+    ;; the frames remain available via describe-last-error and get-backtrace,
+    ;; which read the stored structured error directly.
+    (let ((bt (and *print-backtrace-p* (getf error-info :backtrace))))
       (when bt
         (format s "[Backtrace]~%")
         (dolist (frame bt)

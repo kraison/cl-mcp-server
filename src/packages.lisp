@@ -79,7 +79,8 @@
    #:format-timing-result
    ;; Timeout configuration
    #:*evaluation-timeout*
-   #:*max-output-chars*))
+   #:*max-output-chars*
+   #:*include-backtrace-in-evaluate-response*))
 
 (defpackage #:cl-mcp-server.introspection
   (:use #:cl)
@@ -168,6 +169,10 @@
   (:export
    ;; Availability check
    #:telos-available-p
+   ;; Name resolution
+   #:resolve-feature-name
+   #:resolve-feature
+   #:qualified-name
    ;; Introspection
    #:introspect-list-features
    #:introspect-feature-intent

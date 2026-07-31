@@ -14,6 +14,11 @@ Set to NIL to disable timeout (not recommended for untrusted code).")
 (defparameter *max-output-chars* 100000
   "Maximum characters to capture from stdout/stderr before truncation.")
 
+(defparameter *include-backtrace-in-evaluate-response* nil
+  "Whether evaluate-code includes backtraces in immediate error responses.
+Backtraces are still captured in structured errors for describe-last-error
+and get-backtrace.")
+
 (defun truncate-output (string limit)
   "Truncate STRING to at most LIMIT characters, appending a truncation notice."
   (if (and limit (> (length string) limit))
@@ -290,9 +295,17 @@ Only the values from the last form are returned."
         ;; MCP server frames -- the user's own frames are already gone. The
         ;; handler-bind above ran at the point of the error and saved the real
         ;; stack in STRUCTURED-ERROR, so prefer that.
-        (setf error-info (if structured-error
-                             (format-structured-error structured-error)
-                             (format-error c)))
+        ;;
+        ;; *include-backtrace-in-evaluate-response* still governs whether a
+        ;; backtrace appears in the immediate reply (it is large, and
+        ;; describe-last-error / get-backtrace retrieve it on demand). The two
+        ;; concerns are orthogonal: this picks the CORRECT stack, that decides
+        ;; whether to SHOW one.
+        (setf error-info
+              (let ((*print-backtrace-p* *include-backtrace-in-evaluate-response*))
+                (if structured-error
+                    (format-structured-error structured-error)
+                    (format-error c))))
         (setf success-p nil)))
     (make-evaluation-result
      :success-p success-p
@@ -316,7 +329,8 @@ Only the values from the last form are returned."
                to increase timeout.~
                ~@[~%~%Backtrace at timeout:~%~A~]"
           (timeout-seconds condition)
-          (timeout-backtrace condition)))
+          (when *include-backtrace-in-evaluate-response*
+            (timeout-backtrace condition))))
 
 ;;; ==========================================================================
 ;;; Result Formatting for MCP
@@ -369,14 +383,16 @@ Includes stdout output, warnings, return values, timing, and errors."
     ;; Warnings section
     (dolist (warning (result-warnings result))
       (format s "[Warning] ~a~%" warning))
-    ;; Values or error
+    ;; Values or error. When warnings were signaled, the diagnostic text is the
+    ;; useful payload; suppress return values to avoid echoing large forms.
     (if (result-success-p result)
         (progn
-          (let ((values (result-values result)))
-            (if values
-                (dolist (val values)
-                  (format s "=> ~a~%" val))
-                (format s "; No values~%")))
+          (unless (result-warnings result)
+            (let ((values (result-values result)))
+              (if values
+                  (dolist (val values)
+                    (format s "=> ~a~%" val))
+                  (format s "; No values~%"))))
           ;; Timing section (if present)
           (let ((timing (result-timing result)))
             (when timing

@@ -34,10 +34,15 @@
 (asdf:defsystem #:cl-mcp-server/tests
   :description "Tests for CL-MCP-Server"
   :depends-on (#:cl-mcp-server
-               #:fiveam)
+               #:fiveam
+               ;; Test-only. cl-mcp-server itself degrades gracefully when
+               ;; telos is absent, but the name-resolution tests are only
+               ;; meaningful against telos's real registry shape.
+               #:telos)
   :components ((:module "tests"
                 :components
                 ((:file "packages")
+                 (:file "telos-fixture")
                  (:file "error-format-tests")
                  (:file "session-tests")
                  (:file "evaluator-tests")
@@ -49,6 +54,7 @@
                  (:file "file-tools-tests")
                  (:file "hyperspec-tests")
                  (:file "quicklisp-tools-tests")
+                 (:file "telos-tools-tests")
                  (:file "integration-tests"))))
   ;; NB: the suite must be named by the symbol interned in the test package,
   ;; not the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol

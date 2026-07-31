@@ -310,13 +310,47 @@ Profile memory allocation in code.
 
 ## Telos Integration
 
-Telos tools return empty/unavailable message when `telos` is not loaded. Load with `(ql:quickload :telos)` first.
+Telos tools say explicitly when `telos` is not loaded. Load with `(ql:quickload :telos)` first.
+
+### Feature names
+
+Telos registers features under symbols interned in each feature's own defining
+package (`GHOST.ARENA::ARENA-SQUARE-FEATURE`). Any tool taking a `feature`
+argument accepts either spelling, case-insensitively:
+
+- **Bare** — `arena-square-feature`. Matched against the registry's own keys by
+  name. This is unambiguous in practice; when two packages do register the same
+  name, the tool reports the ambiguity and lists both rather than picking one.
+- **Package-qualified** — `ghost.arena::arena-square-feature` (single colon
+  accepted too). Use this to resolve a reported ambiguity.
+
+### Reading a failure
+
+Five outcomes are reported distinctly. Read which one you got before acting:
+
+| Message begins | Means | Do |
+|----------------|-------|-----|
+| `Telos is not loaded in this image` | The `TELOS` package does not exist | `quickload` telos, then reload the defining system |
+| `Telos failed while answering this query` | Telos is loaded but signalled an error | A telos bug or a stale FASL. Other telos tools may report wrong counts until it is fixed — do not trust them meanwhile |
+| `No feature named X. Telos is loaded and N features are registered` | Telos is fine; the name is wrong | Check the suggested matches or run `telos-list-features` |
+| `The name X is ambiguous` | Two packages register that name | Re-query with the package-qualified spelling |
+| `Feature X is registered but records no decisions` | Found it; it genuinely has none | Nothing is broken — this is the answer |
+
+These five never blur into each other. In particular:
+
+- A "not found" never implies telos failed to load.
+- An empty result is never reported as a lookup failure.
+- A telos that **breaks** is never reported as a telos that found **nothing** — so
+  no message ever asserts a registry count or an absent field that it could not
+  actually read.
 
 ### telos-list-features
 
 List all telos features in loaded systems.
 
-- Args: none
+| Param | Type | Required |
+|-------|------|----------|
+| `filter` | string | no (substring matched against name and purpose) |
 
 ### telos-feature-intent
 
