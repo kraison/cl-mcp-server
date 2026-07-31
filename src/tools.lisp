@@ -274,6 +274,128 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; Inspector and the remaining SLIME primitives
   ;; ========================================================================
 
+  ;; ========================================================================
+  ;; Remote SWANK: read-only access to live services
+  ;;
+  ;; A live service is not a dev image. Default mode is observe/read; nothing
+  ;; that mutates runs without the target being configured for it.
+  ;; ========================================================================
+
+  (cl-mcp:register-tool server "remote-connect"
+   :description "Register a named SWANK target for a running Lisp service, and verify it is reachable. Targets are addressed BY NAME everywhere else, so a port cannot be typo'd into production. `mode` defaults to \"read\" (evaluate forms that read state); \"observe\" allows metadata queries only. Mutating and lifecycle forms are refused in both -- deliberately, since a mistake against a live service is not undoable."
+   :schema '(("type" . "object")
+             ("required" . ("name" "port"))
+             ("properties" . (("name" . (("type" . "string")
+                                         ("description" . "Short name for this target, e.g. \"mine-action\"")))
+                              ("host" . (("type" . "string")
+                                         ("description" . "Default 127.0.0.1")))
+                              ("port" . (("type" . "integer")
+                                         ("description" . "SWANK port")))
+                              ("mode" . (("type" . "string")
+                                         ("description" . "observe | read (default: read)"))))))
+   :handler (lambda (args)
+              (flet ((arg (k) (cdr (assoc k args :test #'string=))))
+                (let* ((name (arg "name"))
+                       (host (or (arg "host") "127.0.0.1"))
+                       (port (arg "port"))
+                       (mode (cond ((equal (arg "mode") "observe") :observe)
+                                   (t :read))))
+                  (cl-mcp-server.remote:register-target name host port
+                                                        :mode mode)
+                  (let ((probe (cl-mcp-server.remote:remote-eval
+                                name "(lisp-implementation-version)")))
+                    (if (getf probe :ok)
+                        (values
+                         (format nil "Target ~A registered: ~A:~D, ~(~A~) mode.~%~
+Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
+                                 name host port mode (getf probe :result))
+                         nil)
+                        (values
+                         (format nil "Target ~A registered but NOT reachable:~%  ~A"
+                                 name (getf probe :error))
+                         t)))))))
+
+  (cl-mcp:register-tool server "remote-eval"
+   :description "Evaluate a form on a named remote target. The form is CLASSIFIED before it is sent: forms that read state run, forms that mutate (setf, defun, load) or affect lifecycle (quit, kill-thread, delete-package) are REFUSED and printed for you to run yourself. Print limits are bound in the remote image, so a large structure cannot flood or stall the service. Every call -- including refusals -- is recorded in the ledger."
+   :schema '(("type" . "object")
+             ("required" . ("target" "code"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Registered target name")))
+                              ("code" . (("type" . "string")
+                                         ("description" . "Form to evaluate remotely")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Remote package context (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (flet ((arg (k) (cdr (assoc k args :test #'string=))))
+                (let ((r (cl-mcp-server.remote:remote-eval
+                          (arg "target") (arg "code")
+                          :package (or (arg "package") "COMMON-LISP-USER"))))
+                  (if (getf r :ok)
+                      (values (format nil "~@[[stdout]~%~A~%~]=> ~A~%"
+                                      (let ((o (getf r :output)))
+                                        (and o (plusp (length o)) o))
+                                      (getf r :result))
+                              nil)
+                      (values (format nil "~A~@[~%~%Remote restarts offered: ~
+~{~A~^, ~}~]"
+                                      (getf r :error) (getf r :restarts))
+                              t))))))
+
+  (cl-mcp:register-tool server "remote-targets"
+   :description "List registered SWANK targets with their host, port and mode. Use this to see what the agent can currently reach."
+   :schema `(("type" . "object")
+             ("properties" . ,(make-hash-table :test #'equal)))
+   :handler (lambda (args)
+              (declare (ignore args))
+              (let ((targets (cl-mcp-server.remote:list-targets)))
+                (if (null targets)
+                    "No remote targets registered."
+                    (with-output-to-string (s)
+                      (format s "~D target~:P:~%~%" (length targets))
+                      (dolist (tg targets)
+                        (format s "  ~A~%    ~A:~D  ~(~A~) mode~%"
+                                (cl-mcp-server.remote:target-name tg)
+                                (cl-mcp-server.remote:target-host tg)
+                                (cl-mcp-server.remote:target-port tg)
+                                (cl-mcp-server.remote:target-mode tg))))))))
+
+  (cl-mcp:register-tool server "remote-ledger"
+   :description "Show every form this session has sent to remote targets, including refused ones, with outcome and tier. This is the answer to 'what has the agent done to my live service?' -- check it before trusting anything, and after any incident."
+   :schema '(("type" . "object")
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Limit to one target (default: all)"))))))
+   :handler (lambda (args)
+              (let* ((tg (cdr (assoc "target" args :test #'string=)))
+                     (entries (reverse (cl-mcp-server.remote:ledger-for tg))))
+                (if (null entries)
+                    "Nothing has been sent to any remote target."
+                    (with-output-to-string (s)
+                      (format s "~D remote call~:P~@[ to ~A~]:~%~%"
+                              (length entries) tg)
+                      (dolist (e entries)
+                        (format s "  ~12A ~10A ~A~%    ~A~@[~%    ~A~]~%"
+                                (string-downcase
+                                 (cl-mcp-server.remote:entry-outcome e))
+                                (string-downcase
+                                 (cl-mcp-server.remote:entry-tier e))
+                                (cl-mcp-server.remote:entry-target e)
+                                (substitute
+                                 #\Space #\Newline
+                                 (cl-mcp-server.remote:entry-form e))
+                                (cl-mcp-server.remote:entry-detail e))))))))
+
+  (cl-mcp:register-tool server "remote-disconnect"
+   :description "Close the connection to a remote target. Use when finished with a live service, or to force a clean reconnect."
+   :schema '(("type" . "object")
+             ("required" . ("target"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Target name"))))))
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "target" args :test #'string=))))
+                (if (cl-mcp-server.remote:close-connection name)
+                    (format nil "Disconnected from ~A." name)
+                    (format nil "No open connection to ~A." name)))))
+
   (cl-mcp:register-tool server "inspect-object"
    :description "Inspect a Lisp VALUE: its type, printed form, and parts (CLOS slots, structure slots, list/array elements, hash-table entries, symbol cells). Each part comes back with a [handle] you can pass to this tool again to walk deeper -- this is SLIME's inspector, and the navigation is the point. Supply `code` to evaluate an expression and inspect its result, or `handle` to descend into a part from a previous inspection. Use this when describe-symbol is the wrong question: describe-symbol is about a NAME, inspect-object is about a VALUE."
    :schema '(("type" . "object")

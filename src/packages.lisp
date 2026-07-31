@@ -293,6 +293,43 @@
    #:who-specializes
    #:format-who-specializes))
 
+(defpackage #:cl-mcp-server.swank-protocol
+  (:use #:cl)
+  (:local-nicknames (#:bt #:bordeaux-threads))
+  (:export
+   #:connect
+   #:disconnect
+   #:rex
+   #:swank-error
+   #:swank-aborted
+   #:swank-aborted-restarts
+   #:swank-aborted-condition
+   #:*call-timeout*
+   #:*connect-timeout*))
+
+(defpackage #:cl-mcp-server.remote
+  (:use #:cl)
+  (:local-nicknames (#:bt #:bordeaux-threads))
+  (:export
+   #:register-target
+   #:find-target
+   #:list-targets
+   #:target-name
+   #:target-host
+   #:target-port
+   #:target-mode
+   #:classify-form
+   #:tier-allowed-p
+   #:remote-eval
+   #:close-connection
+   #:ledger-for
+   #:entry-timestamp
+   #:entry-target
+   #:entry-tier
+   #:entry-form
+   #:entry-outcome
+   #:entry-detail))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator

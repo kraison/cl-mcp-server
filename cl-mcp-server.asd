@@ -9,7 +9,8 @@
   :serial t
   :depends-on (#:cl-mcp            ; MCP protocol framework
                #:alexandria        ; Utilities
-               #:bordeaux-threads  ; Threading (future)
+               #:bordeaux-threads  ; Threading
+               #:usocket           ; SWANK client transport
                #:trivial-backtrace) ; Portable backtraces
   :components ((:module "src"
                 :components
@@ -30,6 +31,8 @@
                  (:file "restarts")
                  (:file "inspector")
                  (:file "trace-tools")
+                 (:file "swank-protocol")
+                 (:file "remote")
                  (:file "tools")
                  (:file "server"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:cl-mcp-server/tests))))
