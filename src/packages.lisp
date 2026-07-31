@@ -310,11 +310,10 @@
 (defpackage #:cl-mcp-server.remote
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
-  ;; CLASSIFY-FORM and TIER-ALLOWED-P stay internal: they are the guts of
-  ;; REMOTE-EVAL, not an interface anything outside calls.
+  ;; CLASSIFY-FORM, TIER-ALLOWED-P and FIND-TARGET stay internal: they are
+  ;; the guts of REMOTE-EVAL, not an interface anything outside calls.
   (:export
    #:register-target
-   #:find-target
    #:list-targets
    #:target-name
    #:target-host

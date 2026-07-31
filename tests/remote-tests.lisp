@@ -84,6 +84,13 @@
 (defun tier-of (form)
   (cl-mcp-server.remote::classify-form form))
 
+(defun read-target (name)
+  "Register NAME in :read mode. The port is deliberately closed: nothing
+here should ever reach the network, so a connection attempt errors rather
+than quietly succeeding."
+  (cl-mcp-server.remote:register-target name "127.0.0.1" 1 :mode :read)
+  name)
+
 (test classify-plain-read
   (is (eq :read (tier-of "(+ 1 2)")))
   (is (eq :read (tier-of "(hash-table-count *cache*)"))))
@@ -182,15 +189,14 @@ since a huge structure can stall the service before we see a byte"
 (test refusal-does-not-connect
   "A refused form must be refused before any socket is opened -- the port
 here is closed, so reaching the network would error rather than refuse"
-  (cl-mcp-server.remote:register-target "test-refuse" "127.0.0.1" 1 :mode :read)
+  (read-target "test-refuse")
   (let ((r (cl-mcp-server.remote:remote-eval "test-refuse" "(sb-ext:quit)")))
     (is-false (getf r :ok))
     (is-true (getf r :refused))
     (is (eq :lifecycle (getf r :tier)))))
 
 (test refusal-shows-the-form-for-a-human
-  (cl-mcp-server.remote:register-target "test-refuse2" "127.0.0.1" 1
-                                        :mode :read)
+  (read-target "test-refuse2")
   (let ((r (cl-mcp-server.remote:remote-eval "test-refuse2" "(setf *x* 1)")))
     (is (search "Run it yourself" (getf r :error)))
     (is (search "(setf *x* 1)" (getf r :error)))))
@@ -201,7 +207,7 @@ here is closed, so reaching the network would error rather than refuse"
 
 (test ledger-records-refusals
   "An attempted destructive call is as interesting as a successful one"
-  (cl-mcp-server.remote:register-target "test-ledger" "127.0.0.1" 1 :mode :read)
+  (read-target "test-ledger")
   (cl-mcp-server.remote:remote-eval "test-ledger" "(sb-ext:quit)")
   (let ((entries (cl-mcp-server.remote:ledger-for "test-ledger")))
     (is-true entries)
@@ -209,14 +215,14 @@ here is closed, so reaching the network would error rather than refuse"
     (is (search "quit" (cl-mcp-server.remote:entry-form (first entries))))))
 
 (test ledger-entries-carry-a-time
-  (cl-mcp-server.remote:register-target "test-time" "127.0.0.1" 1 :mode :read)
+  (read-target "test-time")
   (cl-mcp-server.remote:remote-eval "test-time" "(setf *x* 1)")
   (let ((entry (first (cl-mcp-server.remote:ledger-for "test-time"))))
     (is (= 8 (length (cl-mcp-server.remote:entry-time-string entry))))))
 
 (test ledger-filters-by-target
-  (cl-mcp-server.remote:register-target "test-a" "127.0.0.1" 1 :mode :read)
-  (cl-mcp-server.remote:register-target "test-b" "127.0.0.1" 1 :mode :read)
+  (read-target "test-a")
+  (read-target "test-b")
   (cl-mcp-server.remote:remote-eval "test-a" "(sb-ext:quit)")
   (let ((entries (cl-mcp-server.remote:ledger-for "test-b")))
     (is (every (lambda (e)
@@ -238,7 +244,7 @@ here is closed, so reaching the network would error rather than refuse"
 
 (test remote-eval-tool-refuses-lifecycle
   "End to end through the tool layer, not just the internals"
-  (cl-mcp-server.remote:register-target "test-tool" "127.0.0.1" 1 :mode :read)
+  (read-target "test-tool")
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
     (let ((text (call-test-tool server "remote-eval"
