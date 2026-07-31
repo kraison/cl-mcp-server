@@ -201,6 +201,24 @@
    #:compile-file-check
    #:*backup-suffix*))
 
+(defpackage #:cl-mcp-server.hyperspec
+  (:use #:cl)
+  (:export
+   ;; CLHS lookup
+   #:lookup-hyperspec
+   #:hyperspec-url
+   #:format-hyperspec-result
+   #:*hyperspec-root*
+   #:*clhs-pages*
+   ;; generic function / method enumeration
+   #:generic-function-info
+   #:format-generic-function-info
+   #:eql-specializer-values
+   #:specializer-label
+   ;; definition source
+   #:find-definition-source
+   #:format-definition-source))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
@@ -210,7 +228,8 @@
         #:cl-mcp-server.profiling-tools
         #:cl-mcp-server.telos-tools
         #:cl-mcp-server.paren-tools
-        #:cl-mcp-server.file-tools)
+        #:cl-mcp-server.file-tools
+        #:cl-mcp-server.hyperspec)
   (:export
    #:define-builtin-tools
    #:get-usage-guide-content))

@@ -24,6 +24,8 @@
                  (:file "telos-tools")
                  (:file "paren-tools")
                  (:file "file-tools")
+                 (:file "hyperspec-data")
+                 (:file "hyperspec")
                  (:file "tools")
                  (:file "server"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:cl-mcp-server/tests))))
@@ -44,6 +46,7 @@
                  (:file "profiling-tools-tests")
                  (:file "paren-tools-tests")
                  (:file "file-tools-tests")
+                 (:file "hyperspec-tests")
                  (:file "integration-tests"))))
   ;; NB: the suite must be named by the symbol interned in the test package,
   ;; not the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol

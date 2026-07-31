@@ -262,7 +262,54 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; Phase B: Enhanced Evaluation Tools
   ;; ========================================================================
 
-  ;; write-lisp-file: atomic validate -> write -> compile -> report
+  ;; describe-generic-function: methods + EQL specializers for a GF
+  (cl-mcp:register-tool server "describe-generic-function"
+   :description "List every method of a generic function with its specializers and qualifiers, including EQL specializers. USE THIS BEFORE CALLING ANY GENERIC FUNCTION whose arguments select behaviour (an ALGORITHM, MODE, KIND or TYPE parameter): the lambda list alone cannot tell you which values are accepted, but the EQL specializers enumerate them exactly. Complements find-methods, which answers the dual question (what specializes on a CLASS)."
+   :schema '(("type" . "object")
+             ("required" . ("name"))
+             ("properties" . (("name" . (("type" . "string")
+                                         ("description" . "Generic function name")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package name (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let* ((name (cdr (assoc "name" args :test #'string=)))
+                     (pkg (cdr (assoc "package" args :test #'string=)))
+                     (info (generic-function-info name
+                                                  :package (or pkg "CL-USER"))))
+                (multiple-value-bind (text error-p)
+                    (format-generic-function-info info)
+                  (values text error-p)))))
+
+  ;; hyperspec-lookup: symbol -> CLHS URL, resolved from a local table
+  (cl-mcp:register-tool server "hyperspec-lookup"
+   :description "Get the Common Lisp HyperSpec URL for a standard CL symbol. The symbol->page index is shipped locally so lookup needs no network. Use this for authoritative semantics of standard operators (edge cases, argument conventions, return values) instead of recalling them from memory."
+   :schema '(("type" . "object")
+             ("required" . ("name"))
+             ("properties" . (("name" . (("type" . "string")
+                                         ("description" . "Standard CL symbol name, e.g. \"mapcar\" or \"with-open-file\""))))))
+   :handler (lambda (args)
+              (let ((name (cdr (assoc "name" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-hyperspec-result (lookup-hyperspec name))
+                  (values text error-p)))))
+
+  ;; find-definition-source: jump to definition
+  (cl-mcp:register-tool server "find-definition-source"
+   :description "Find the file and line where a symbol is defined, for functions, macros, generic functions, individual methods, classes, structures, types, conditions and variables. Use this INSTEAD OF grepping the source tree: it asks the running image where a definition actually came from, so it is exact even for code loaded from elsewhere."
+   :schema '(("type" . "object")
+             ("required" . ("name"))
+             ("properties" . (("name" . (("type" . "string")
+                                         ("description" . "Symbol name to locate")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Package name (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (let* ((name (cdr (assoc "name" args :test #'string=)))
+                     (pkg (cdr (assoc "package" args :test #'string=))))
+                (multiple-value-bind (text error-p)
+                    (format-definition-source
+                     (find-definition-source name :package (or pkg "CL-USER")))
+                  (values text error-p)))))
+
   (cl-mcp:register-tool server "write-lisp-file"
    :description "Write Common Lisp source to a file ATOMICALLY AND SAFELY: the content is parsed first and the file is written ONLY if it is syntactically valid, then compiled to report warnings and type errors. PREFER THIS over any shell/editor tool for creating or overwriting .lisp files -- it cannot leave a malformed file on disk, it keeps a .bak of the previous version, and it returns compiler diagnostics in the same call. Returns isError:true if the content is invalid (nothing written) or if compilation fails."
    :schema '(("type" . "object")
@@ -777,6 +824,24 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   "Return the usage guide for effective MCP server usage."
   "# CL-MCP-Server Usage Guide
 
+## Rule 0: Don't guess — ask the image
+
+Before calling ANY function you have not called before in this session,
+retrieve its signature. Guessing feels cheaper than a tool call. It is not:
+a wrong guess costs an error, a re-read, and a retry, and silently wrong
+guesses cost far more. One lookup is cheaper than one wrong guess.
+
+| Before you... | Call | Why |
+|---------------|------|-----|
+| call an unfamiliar function | `describe-symbol` | real lambda list, not a remembered one |
+| call a generic function with a mode/algorithm/kind argument | `describe-generic-function` | EQL specializers enumerate the accepted values; the lambda list cannot |
+| rely on a standard CL operator's edge-case behaviour | `hyperspec-lookup` | authoritative semantics |
+| grep for where something is defined | `find-definition-source` | asks the image, exact |
+| write a .lisp file | `write-lisp-file` | fail-closed: invalid content is never written |
+| guess whether a name exists | `apropos-search` | cheap discovery |
+
+The image knows. Ask it.
+
 ## Quick Start
 
 This server provides a persistent Common Lisp REPL accessible via MCP tools.
@@ -787,6 +852,10 @@ Definitions persist across calls within a session.
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
 | evaluate-lisp | Execute code, persist definitions | Main development tool |
+| describe-generic-function | Methods + EQL specializers of a GF | BEFORE calling a GF with a mode/algorithm arg |
+| hyperspec-lookup | CLHS URL for a standard symbol | Authoritative semantics of CL operators |
+| find-definition-source | File and line of a definition | Instead of grepping the tree |
+| write-lisp-file | Validate, write, compile in one call | Creating/overwriting .lisp files |
 | validate-syntax | Check paren balance, syntax | BEFORE saving files |
 | compile-form | Type check without execution | Pre-commit verification |
 | describe-symbol | Inspect symbols | Understanding APIs |
