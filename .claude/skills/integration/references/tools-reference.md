@@ -1,6 +1,6 @@
 # cl-mcp-server Tools Reference
 
-All 54 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
+All 59 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
 
 ## Workflow
 
@@ -106,6 +106,50 @@ so it is refused.
 ---
 
 ## Runtime Inspection
+
+### Remote services (read-only)
+
+These act on a **running service**, not this image. Full safety model:
+`docs/reference/remote-swank.md`. Read that before pointing them at
+anything that matters.
+
+#### remote-connect
+
+Register a named SWANK target and verify it is reachable. Targets are
+addressed by NAME everywhere else, so a port cannot be typo'd into prod.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Short name, e.g. `"mine-action"` |
+| `port` | integer | yes | SWANK port |
+| `host` | string | no | Default `127.0.0.1` |
+| `mode` | string | no | `observe` or `read` (default `read`) |
+
+Neither mode permits mutation. There is currently no mode that does.
+
+#### remote-eval
+
+| Param | Type | Required |
+|-------|------|----------|
+| `target` | string | yes |
+| `code` | string | yes |
+| `package` | string | no |
+
+The form is classified before it is sent. `setf`/`defun`/`load` (mutate) and
+`quit`/`kill-thread`/`delete-package` (lifecycle) are **refused** and printed
+for a human to run. So are opaque operators — `eval`, `funcall`, `apply`,
+`#.` — whose effect cannot be read.
+
+Classification is textual: it cannot see through a macro or a function that
+mutates internally. It stops accidents, not adversaries.
+
+#### remote-targets / remote-ledger / remote-disconnect
+
+`remote-targets` takes no arguments. `remote-ledger` takes an optional
+`target` and shows every form sent — refusals included, with timestamps.
+`remote-disconnect` takes `target`.
+
+Check the ledger before trusting a session's work against a live service.
 
 ### inspect-object
 

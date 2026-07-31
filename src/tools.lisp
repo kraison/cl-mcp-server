@@ -1159,6 +1159,8 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | wonder what a value contains | `inspect-object` | slots and elements, navigable |
 | wonder what a call did | `trace-call` | the actual arguments and returns |
 | want to recover from an error | `evaluate-with-restarts` | the condition stays live |
+| touch a RUNNING service | `remote-connect` then `remote-eval` | read-only; mutations refused |
+| wonder what you did to a service | `remote-ledger` | every call, refusals included |
 
 The image knows. Ask it.
 
@@ -1183,6 +1185,9 @@ Definitions persist across calls within a session.
 | macrostep | One expansion at a time | Macros that expand into other macros |
 | who-specializes | Methods on a class, all GFs | The full protocol a class participates in |
 | validate-syntax | Check paren balance, syntax | BEFORE saving files |
+| remote-connect | Register a live SWANK target | Working against a running service |
+| remote-eval | Evaluate on a running service | Reading live state; mutations are refused |
+| remote-ledger | Audit of every remote call | Before trusting, and after an incident |
 | compile-form | Type check without execution | Pre-commit verification |
 | describe-symbol | Inspect symbols | Understanding APIs |
 | apropos-search | Find symbols by pattern | Discovering functions |

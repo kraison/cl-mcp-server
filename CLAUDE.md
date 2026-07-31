@@ -18,6 +18,14 @@ look up its signature. Guessing *feels* cheaper than a tool call; it isn't.
 
 Do Lisp work through the `lisp` MCP tools. Do not shell out to `sbcl`.
 
+## Live services
+
+`remote-*` act on a **running service**, where a mistake is not undoable.
+They are read-only: mutating and lifecycle forms are refused and printed for
+you to run. The classifier is textual and cannot see through a macro, so it
+stops accidents, not adversaries — `remote-ledger` is the real audit.
+See `docs/reference/remote-swank.md`.
+
 ## For contributors working on this project
 Invoke the dev skill: `.claude/skills/dev/SKILL.md`
 

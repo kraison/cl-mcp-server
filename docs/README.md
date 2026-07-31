@@ -49,6 +49,7 @@ This documentation follows the [Diátaxis framework](https://diataxis.fr/) for c
 - [CLOS Tools](reference/clos-tools.md) - Object-oriented programming support
 - [ASDF & Quicklisp](reference/asdf-quicklisp.md) - Loading libraries and systems
 - [Profiling Tools](reference/profiling-tools.md) - Performance analysis
+- [Remote SWANK](reference/remote-swank.md) - Read-only access to running services
 - [MCP Protocol Details](reference/mcp-protocol.md) - JSON-RPC wire protocol
 - [Configuration Options](reference/configuration.md) - Setup and deployment
 
