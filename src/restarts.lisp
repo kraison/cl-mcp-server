@@ -198,28 +198,22 @@ the condition declines to the next handler."
 ;;; uninteresting choice. These are what make USE-VALUE and RETRY real.
 ;;; ==========================================================================
 
-(defmacro with-standard-restarts ((&key on-retry) &body body)
-  "Run BODY with RETRY / USE-VALUE / ABORT-EVALUATION established.
-ON-RETRY, when supplied, is a thunk called before each re-attempt."
-  (let ((block-name (gensym "SR-BLOCK"))
-        (again (gensym "AGAIN")))
-    `(block ,block-name
+(defmacro with-standard-restarts (&body body)
+  "Run BODY with RETRY / USE-VALUE / ABORT-EVALUATION established."
+  (let ((done (gensym "DONE")))
+    `(block ,done
        (loop
-         (let ((,again nil))
-           (restart-case
-               (return-from ,block-name (progn ,@body))
-             (retry ()
-               :report "Retry evaluating the form from the beginning."
-               (setf ,again t))
-             (use-value (v)
-               :report "Return a specified value instead."
-               :interactive (lambda () (list (read)))
-               (return-from ,block-name v))
-             (abort-evaluation ()
-               :report "Abort this evaluation and return NIL."
-               (return-from ,block-name nil)))
-           (unless ,again (return-from ,block-name nil))
-           ,@(when on-retry `((funcall ,on-retry))))))))
+         (restart-case
+             (return-from ,done (progn ,@body))
+           (retry ()
+             :report "Retry evaluating the form from the beginning.")
+           (use-value (v)
+             :report "Return a specified value instead."
+             :interactive (lambda () (list (read)))
+             (return-from ,done v))
+           (abort-evaluation ()
+             :report "Abort this evaluation and return NIL."
+             (return-from ,done nil)))))))
 
 ;;; ==========================================================================
 ;;; Entry point
@@ -282,7 +276,7 @@ Resolve or abandon them first; see list-suspensions."
                           ;; and not just ABORT.
                           (setf values
                                 (multiple-value-list
-                                 (with-standard-restarts ()
+                                 (with-standard-restarts
                                    (eval (read-from-string code-string)))))
                           (setf done t
                                 (suspension-values susp) values
