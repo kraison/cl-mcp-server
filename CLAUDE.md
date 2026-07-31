@@ -11,6 +11,10 @@ look up its signature. Guessing *feels* cheaper than a tool call; it isn't.
 - standard CL operator semantics → `hyperspec-lookup`
 - where is this defined? → `find-definition-source`, not grep
 - writing a `.lisp` file → `write-lisp-file` (fail-closed; never writes invalid source)
+- what does this value actually contain? → `inspect-object` (navigable)
+- what did this call actually do? → `trace-call`
+- recovering from an error, not just reading it → `evaluate-with-restarts`,
+  then `invoke-restart` (`CONTINUE` resumes in place)
 
 Do Lisp work through the `lisp` MCP tools. Do not shell out to `sbcl`.
 

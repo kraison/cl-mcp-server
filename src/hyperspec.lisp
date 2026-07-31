@@ -1,5 +1,5 @@
 ;;; src/hyperspec.lisp
-;;; ABOUTME: CLHS lookup + generic-function method enumeration + definition source
+;;; ABOUTME: CLHS lookup, GF method enumeration, definition source
 
 (in-package #:cl-mcp-server.hyperspec)
 
@@ -197,7 +197,8 @@ Use describe-symbol for its arglist."
          (format s "~A [GENERIC-FUNCTION]~%" (getf info :name))
          (format s "  Lambda-list: ~A~%" (getf info :lambda-list))
          (when (getf info :method-combination)
-           (format s "  Method combination: ~A~%" (getf info :method-combination)))
+           (format s "  Method combination: ~A~%"
+                   (getf info :method-combination)))
          (when (getf info :documentation)
            (format s "  Documentation: ~A~%" (getf info :documentation)))
          ;; Lead with the EQL menu -- it is the highest-value line here.
@@ -205,12 +206,14 @@ Use describe-symbol for its arglist."
            (when eqls
              (format s "~%  Accepted EQL-specialized values:~%")
              (dolist (entry eqls)
-               (format s "    argument ~D: ~{~A~^ ~}~%" (car entry) (cdr entry)))))
+               (format s "    argument ~D: ~{~A~^ ~}~%"
+                       (car entry) (cdr entry)))))
          (let ((methods (getf info :methods)))
            (format s "~%  ~D method~:P:~%" (length methods))
            (dolist (m (sort (copy-list methods) #'string<
                             :key (lambda (m)
-                                   (format nil "~{~A~^,~}" (getf m :specializers)))))
+                                   (format nil "~{~A~^,~}"
+                                           (getf m :specializers)))))
              (format s "    ~@[~{~A ~}~](~{~A~^, ~})~%"
                      (getf m :qualifiers)
                      (getf m :specializers)))))

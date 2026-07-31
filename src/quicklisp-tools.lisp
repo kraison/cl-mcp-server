@@ -67,19 +67,32 @@ one release should degrade one field, not fail the whole query."
 
 ;;; Thin named wrappers, so the rest of the file reads like ordinary Lisp.
 
-(defun ql-find-system (name)   (%safe (lambda () (%call :ql-dist "FIND-SYSTEM" name))))
-(defun ql-find-dist (name)     (%safe (lambda () (%call :ql-dist "FIND-DIST" name))))
-(defun ql-name (object)        (%safe (lambda () (%call :ql-dist "NAME" object))))
-(defun ql-release (system)     (%safe (lambda () (%call :ql-dist "RELEASE" system))))
-(defun ql-required (system)    (%safe (lambda () (%call :ql-dist "REQUIRED-SYSTEMS" system)) nil))
-(defun ql-installedp (release) (%safe (lambda () (and (%call :ql-dist "INSTALLEDP" release) t))))
-(defun ql-project-name (rel)   (%safe (lambda () (%call :ql-dist "PROJECT-NAME" rel))))
-(defun ql-archive-url (rel)    (%safe (lambda () (%call :ql-dist "ARCHIVE-URL" rel))))
-(defun ql-archive-size (rel)   (%safe (lambda () (%call :ql-dist "ARCHIVE-SIZE" rel))))
-(defun ql-provided (rel)       (%safe (lambda () (%call :ql-dist "PROVIDED-SYSTEMS" rel)) nil))
-(defun ql-system-file (system) (%safe (lambda () (%call :ql-dist "SYSTEM-FILE-NAME" system))))
-(defun ql-dist-version (dist)  (%safe (lambda () (%call :ql-dist "VERSION" dist))))
-(defun ql-enabled-dists ()     (%safe (lambda () (%call :ql-dist "ENABLED-DISTS")) nil))
+(defun ql-find-system (name)
+  (%safe (lambda () (%call :ql-dist "FIND-SYSTEM" name))))
+(defun ql-find-dist (name)
+  (%safe (lambda () (%call :ql-dist "FIND-DIST" name))))
+(defun ql-name (object)
+  (%safe (lambda () (%call :ql-dist "NAME" object))))
+(defun ql-release (system)
+  (%safe (lambda () (%call :ql-dist "RELEASE" system))))
+(defun ql-required (system)
+  (%safe (lambda () (%call :ql-dist "REQUIRED-SYSTEMS" system)) nil))
+(defun ql-installedp (release)
+  (%safe (lambda () (and (%call :ql-dist "INSTALLEDP" release) t))))
+(defun ql-project-name (rel)
+  (%safe (lambda () (%call :ql-dist "PROJECT-NAME" rel))))
+(defun ql-archive-url (rel)
+  (%safe (lambda () (%call :ql-dist "ARCHIVE-URL" rel))))
+(defun ql-archive-size (rel)
+  (%safe (lambda () (%call :ql-dist "ARCHIVE-SIZE" rel))))
+(defun ql-provided (rel)
+  (%safe (lambda () (%call :ql-dist "PROVIDED-SYSTEMS" rel)) nil))
+(defun ql-system-file (system)
+  (%safe (lambda () (%call :ql-dist "SYSTEM-FILE-NAME" system))))
+(defun ql-dist-version (dist)
+  (%safe (lambda () (%call :ql-dist "VERSION" dist))))
+(defun ql-enabled-dists ()
+  (%safe (lambda () (%call :ql-dist "ENABLED-DISTS")) nil))
 (defun ql-installed-releases (dist)
   (%safe (lambda () (%call :ql-dist "INSTALLED-RELEASES" dist)) nil))
 (defun ql-dist-provided-systems (dist)
@@ -188,10 +201,12 @@ Try quicklisp-search to find the right name."
        (with-output-to-string (s)
          (let ((missing (getf info :missing)))
            (format s "quickload ~A~%~%" (getf info :name))
-           (format s "  ~D system~:P in the dependency tree~%" (getf info :total))
+           (format s "  ~D system~:P in the dependency tree~%"
+                   (getf info :total))
            (format s "  ~D already installed~%" (getf info :present))
            (if (null missing)
-               (format s "~%Nothing to download - everything is already installed.~%")
+               (format s "~%Nothing to download - everything is already ~
+installed.~%")
                (progn
                  (format s "  ~D would be downloaded (~D release~:P, ~A)~%~%"
                          (length missing)
@@ -261,13 +276,15 @@ Try quicklisp-search to find the right name." (getf info :name))
            (format s "~%  Requires (~D):~%" (length req))
            (if req
                (dolist (r req)
-                 (format s "    ~A~@[  [installed]~*~]~%" r (system-installed-p r)))
+                 (format s "    ~A~@[  [installed]~*~]~%"
+                         r (system-installed-p r)))
                (format s "    (none)~%")))
          (let ((sib (getf info :siblings)))
            (when sib
              (format s "~%  Same release also provides:~%")
              (dolist (x sib) (format s "    ~A~%" x))))
-         (format s "~%  Use quicklisp-dry-run to see what loading this would fetch.~%"))
+         (format s "~%  Use quicklisp-dry-run to see what loading this ~
+would fetch.~%"))
        nil)))
 
 ;;; ==========================================================================
@@ -290,10 +307,12 @@ point under its own -tests and -docs subsystems."
                        (list :name n
                              :installed-p (and rel (ql-installedp rel))
                              :release (and rel (ql-name rel))
-                             :subsystem-p (and n (or (find #\/ n)
-                                                     (search "-test" (string-downcase n))
-                                                     (search "-doc" (string-downcase n)))
-                                               t))))
+                             :subsystem-p
+                             (let ((d (and n (string-downcase n))))
+                               (and d (or (find #\/ d)
+                                          (search "-test" d)
+                                          (search "-doc" d))
+                                    t)))))
                    systems)))
     (flet ((rank (e)
              (let ((n (string-downcase (or (getf e :name) ""))))
@@ -311,7 +330,9 @@ point under its own -tests and -docs subsystems."
   "Render SEARCH-SYSTEMS. Returns (values text error-p)."
   (let ((entries (getf result :entries)))
     (if (null entries)
-        (values (format nil "No Quicklisp systems match ~A." (getf result :term)) t)
+        (values (format nil "No Quicklisp systems match ~A."
+                        (getf result :term))
+                t)
         (values
          (with-output-to-string (s)
            (format s "~D system~:P matching ~A~@[ (showing ~D)~]:~%~%"
@@ -350,7 +371,8 @@ Either it is a leaf library, or the name is wrong - check quicklisp-search."
         (values
          (with-output-to-string (s)
            (format s "~D system~:P depend~:[s~;~] on ~A~@[ (showing ~D)~]:~%~%"
-                   (getf info :total) (/= 1 (getf info :total)) (getf info :name)
+                   (getf info :total) (/= 1 (getf info :total))
+                   (getf info :name)
                    (when (< (length users) (getf info :total)) (length users)))
            (dolist (u users) (format s "  ~A~%" u)))
          nil))))
@@ -373,8 +395,9 @@ Either it is a leaf library, or the name is wrong - check quicklisp-search."
            (ql-enabled-dists))))
     (list :client-version (%safe (lambda () (%call :ql "CLIENT-VERSION")))
           :quicklisp-home (%safe (lambda ()
-                                   (let ((h (symbol-value
-                                             (find-symbol "*QUICKLISP-HOME*" :ql-setup))))
+                                   (let* ((s (find-symbol "*QUICKLISP-HOME*"
+                                                          :ql-setup))
+                                          (h (and s (symbol-value s))))
                                      (and h (namestring h)))))
           :dists dists)))
 
@@ -383,7 +406,8 @@ Either it is a leaf library, or the name is wrong - check quicklisp-search."
   (values
    (with-output-to-string (s)
      (format s "Quicklisp~%")
-     (format s "  Client version: ~A~%" (or (getf info :client-version) "unknown"))
+     (format s "  Client version: ~A~%"
+             (or (getf info :client-version) "unknown"))
      (when (getf info :quicklisp-home)
        (format s "  Home:           ~A~%" (getf info :quicklisp-home)))
      (dolist (d (getf info :dists))
@@ -392,7 +416,8 @@ Either it is a leaf library, or the name is wrong - check quicklisp-search."
        (format s "    systems available:  ~D~%" (getf d :provided-systems))
        (format s "    releases installed: ~D~%" (getf d :installed-releases))
        (if (getf d :update-available)
-           (format s "    UPDATE AVAILABLE:   ~A  (run (ql:update-dist \"~A\") yourself)~%"
+           (format s "    UPDATE AVAILABLE:   ~A~%    ~
+run (ql:update-dist \"~A\") yourself~%"
                    (getf d :update-available) (getf d :name))
            (format s "    up to date~%"))))
    nil))

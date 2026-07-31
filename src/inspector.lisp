@@ -100,7 +100,8 @@ slots -- which is never what the caller meant."
     (block collecting
       (maphash (lambda (k v)
                  (when (>= n *max-parts*) (return-from collecting))
-                 (push (cons (format nil "key ~A" (%safe-print k :length 10 :level 2))
+                 (push (cons (format nil "key ~A"
+                                     (%safe-print k :length 10 :level 2))
                              v)
                        parts)
                  (incf n))
@@ -176,8 +177,10 @@ compound ones are reduced to their head to stay readable in a table."
 (defun inspect-expression (code &key package)
   "Evaluate CODE and inspect the result."
   (handler-case
-      (let ((*package* (or (find-package (string-upcase (or package "COMMON-LISP-USER")))
-                           (find-package :cl-user))))
+      (let ((*package*
+              (or (find-package
+                   (string-upcase (or package "COMMON-LISP-USER")))
+                  (find-package :cl-user))))
         (inspect-object (eval (read-from-string code))))
     (error (e)
       (make-inspection :error-text (format nil "~A: ~A" (type-of e) e)))))
@@ -203,7 +206,8 @@ have been registered; re-run inspect to get fresh ones."
       (values (inspection-error-text insp) t)
       (values
        (with-output-to-string (s)
-         (format s "[~D] ~A~%" (inspection-handle insp) (inspection-type-name insp))
+         (format s "[~D] ~A~%"
+                 (inspection-handle insp) (inspection-type-name insp))
          (format s "~A~%" (inspection-printed insp))
          (when (plusp (length (inspection-description insp)))
            (format s "~%~A~%" (inspection-description insp)))
@@ -218,5 +222,6 @@ have been registered; re-run inspect to get fresh ones."
                              handle label printed type)))
                  (when (inspection-truncated-p insp)
                    (format s "  ... truncated at ~D parts~%" *max-parts*))
-                 (format s "~%Inspect a part with inspect-object and its [handle].~%")))))
+                 (format s "~%Inspect a part with inspect-object and its ~
+[handle].~%")))))
        nil)))

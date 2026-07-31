@@ -104,7 +104,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
      (let ((tr (getf info :transcript)))
        (if (plusp (length tr))
            (format s "~%[Trace]~%~A" tr)
-           (format s "~%(no trace output -- were the functions actually called?)~%")))
+           (format s "~%(no trace output -- were the functions actually ~
+called?)~%")))
      (if (getf info :error)
          (format s "~%[ERROR] ~A~%" (getf info :error))
          (format s "~%~{=> ~A~%~}" (getf info :values))))
@@ -122,7 +123,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
       ((not (fboundp sym)) (list :found-p nil :reason "not fbound"))
       (t (handler-case
              (list :found-p t
-                   :name (format nil "~A::~A" (package-name (symbol-package sym))
+                   :name (format nil "~A::~A"
+                                 (package-name (symbol-package sym))
                                  (symbol-name sym))
                    :text (with-output-to-string (s)
                            (let ((*standard-output* s))
@@ -147,7 +149,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
 (defun macrostep (code &key package (max-steps 10))
   "Expand CODE one macro step at a time, recording each stage."
   (handler-case
-      (let* ((pkg (or (find-package (string-upcase (or package "COMMON-LISP-USER")))
+      (let* ((pkg (or (find-package
+                       (string-upcase (or package "COMMON-LISP-USER")))
                       (find-package :cl-user)))
              (*package* pkg)
              (form (read-from-string code))
@@ -157,7 +160,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
           (multiple-value-bind (expansion expanded-p) (macroexpand-1 form)
             (unless expanded-p (return))
             (incf n)
-            (push (let ((*print-length* 60) (*print-level* 8) (*print-pretty* t))
+            (push (let ((*print-length* 60) (*print-level* 8)
+                        (*print-pretty* t))
                     (prin1-to-string expansion))
                   steps)
             (setf form expansion)
@@ -167,7 +171,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
                                                   (read-from-string code)))
               :steps (nreverse steps)
               :exhausted-p (>= n max-steps)))
-    (error (e) (list :found-p nil :reason (format nil "~A: ~A" (type-of e) e)))))
+    (error (e)
+      (list :found-p nil :reason (format nil "~A: ~A" (type-of e) e)))))
 
 (defun format-macrostep (info)
   (if (not (getf info :found-p))
@@ -182,7 +187,8 @@ is scoped to the evaluation so it cannot bleed into later ones."
                      for i from 1
                      do (format s "~%Step ~D:~%  ~A~%" i step))))
          (when (getf info :exhausted-p)
-           (format s "~%(stopped at the step limit; expansion may continue)~%")))
+           (format s "~%(stopped at the step limit; expansion may ~
+continue)~%")))
        nil)))
 
 ;;; ==========================================================================
@@ -207,13 +213,15 @@ is scoped to the evaluation so it cannot bleed into later ones."
                                  (sb-mop:generic-function-name gf))
                             :qualifiers (method-qualifiers m)
                             :specializers
-                            (mapcar (lambda (sp)
-                                      (cl-mcp-server.hyperspec:specializer-label sp))
-                                    (sb-mop:method-specializers m)))
+                            (mapcar
+                             (lambda (sp)
+                               (cl-mcp-server.hyperspec:specializer-label sp))
+                             (sb-mop:method-specializers m)))
                       hits))))
           (list :found-p t
                 :class (string (class-name class))
-                :methods (sort hits #'string< :key (lambda (h) (getf h :gf))))))))
+                :methods (sort hits #'string<
+                               :key (lambda (h) (getf h :gf))))))))
 
 (defun format-who-specializes (info)
   (if (not (getf info :found-p))
@@ -225,5 +233,6 @@ is scoped to the evaluation so it cannot bleed into later ones."
                    (length methods) (getf info :class))
            (dolist (m methods)
              (format s "  ~A ~@[~{~A ~}~](~{~A~^, ~})~%"
-                     (getf m :gf) (getf m :qualifiers) (getf m :specializers)))))
+                     (getf m :gf) (getf m :qualifiers)
+                     (getf m :specializers)))))
        nil)))

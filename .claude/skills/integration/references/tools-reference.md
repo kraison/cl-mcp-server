@@ -1,6 +1,6 @@
 # cl-mcp-server Tools Reference
 
-All 45 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
+All 54 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
 
 ## Workflow
 
@@ -62,6 +62,96 @@ Execute code with timing statistics.
 | `code` | string | yes |
 
 Returns: result + "Real time: Xs, Run time: Xs, GC time: Xs, Bytes allocated: N"
+
+---
+
+## Live Conditions & Restarts
+
+### evaluate-with-restarts
+
+Evaluate code; if it signals, SUSPEND the condition **live** rather than
+unwinding, and report the restarts. Unlike `evaluate-lisp`, which reports
+restarts only after the stack is gone, these can actually be invoked.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `code` | string | yes |
+| `package` | string | no |
+
+Returns `[SUSPENDED n]` with a restart menu, or the value if no error. A
+suspension holds a worker thread and expires (default 300s).
+
+### invoke-restart
+
+Choose a restart on a suspension. `CONTINUE` on a `cerror` resumes the
+computation **in place** — a loop carries on from where it stopped.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `suspension-id` | integer | yes | From evaluate-with-restarts |
+| `restart-index` | integer | no | By index |
+| `restart-name` | string | no | By name, e.g. `"CONTINUE"` |
+| `value` | string | no | Lisp form for interactive restarts |
+| `abort` | boolean | no | Unwind instead of choosing |
+
+Interactive restarts (`USE-VALUE`, `STORE-VALUE`) **require** `value`;
+invoking one without it would re-enter the debugger and wedge the worker,
+so it is refused.
+
+### list-suspensions / abandon-suspension
+
+`list-suspensions` takes no arguments and shows what is awaiting a decision.
+`abandon-suspension` takes `suspension-id` and releases the worker.
+
+---
+
+## Runtime Inspection
+
+### inspect-object
+
+Inspect a **value** (not a name): CLOS slots, structure slots, sequence
+elements, hash entries, symbol cells. Every part comes back with a
+`[handle]` you can pass back in to walk deeper — the navigation is the point.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | no | Expression to evaluate and inspect |
+| `handle` | integer | no | Part from an earlier inspection |
+| `package` | string | no | |
+
+Supply one of `code` or `handle`. Handles expire after 500 registrations.
+
+### trace-call
+
+Evaluate a form with functions traced; returns the transcript with the
+result. Tracing is scoped to the one call and removed afterwards.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `code` | string | yes |
+| `functions` | array of string | yes |
+| `package` | string | no |
+
+### macrostep
+
+Expand a macro **one step at a time**, showing each stage — what
+`macroexpand-form` cannot do when a macro expands into other macros.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | yes | |
+| `package` | string | no | |
+| `max-steps` | integer | no | Default 10 |
+
+### disassemble-function
+
+Compiled machine code for a function. Use to check whether a call was
+inlined or a type declaration had the intended effect.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `name` | string | yes |
+| `package` | string | no |
 
 ---
 
@@ -207,6 +297,16 @@ EQL specializers enumerate them exactly.
 
 Complements `find-methods`, which answers the dual question (what specializes
 on a given class).
+
+### who-specializes
+
+Every method specialized on a class, across all generic functions — the
+inverse of `find-methods`. Includes writer methods like `(SETF FOO)`.
+
+| Param | Type | Required |
+|-------|------|----------|
+| `class` | string | yes |
+| `package` | string | no |
 
 ---
 

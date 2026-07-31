@@ -1066,6 +1066,9 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | grep for where something is defined | `find-definition-source` | asks the image, exact |
 | write a .lisp file | `write-lisp-file` | fail-closed: invalid content is never written |
 | guess whether a name exists | `apropos-search` | cheap discovery |
+| wonder what a value contains | `inspect-object` | slots and elements, navigable |
+| wonder what a call did | `trace-call` | the actual arguments and returns |
+| want to recover from an error | `evaluate-with-restarts` | the condition stays live |
 
 The image knows. Ask it.
 
@@ -1083,6 +1086,12 @@ Definitions persist across calls within a session.
 | hyperspec-lookup | CLHS URL for a standard symbol | Authoritative semantics of CL operators |
 | find-definition-source | File and line of a definition | Instead of grepping the tree |
 | write-lisp-file | Validate, write, compile in one call | Creating/overwriting .lisp files |
+| evaluate-with-restarts | Suspend a live condition | Recovering from an error, not just reading it |
+| invoke-restart | Choose a restart on a suspension | CONTINUE resumes the computation in place |
+| inspect-object | Inspect a value, navigably | Understanding what data actually holds |
+| trace-call | Trace a form, scoped to one call | What did this call, with what, returning what |
+| macrostep | One expansion at a time | Macros that expand into other macros |
+| who-specializes | Methods on a class, all GFs | The full protocol a class participates in |
 | validate-syntax | Check paren balance, syntax | BEFORE saving files |
 | compile-form | Type check without execution | Pre-commit verification |
 | describe-symbol | Inspect symbols | Understanding APIs |

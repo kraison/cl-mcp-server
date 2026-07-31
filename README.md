@@ -35,7 +35,7 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 - **NEW**: Paren matching tools -- the agents struggle with lots of parens
 - **Persistent REPL**: Define functions once, use them repeatedly in the same session
-- **45 tools**: full-on REPL power for evaluation, introspection, profiling, and more
+- **54 tools**: full-on REPL power for evaluation, introspection, profiling, and more
 - **Rich Error Reporting**: Get concise default errors, with detailed backtraces and condition information on demand
 - **Stream Separation**: Clearly distinguish between return values, printed output, and warnings
 - **Safe Execution**: Server never crashes—all user code errors are caught and reported
@@ -187,7 +187,7 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### Available Tools
 
-CL-MCP-Server provides **45 tools** organized into categories:
+CL-MCP-Server provides **54 tools** organized into categories:
 
 #### Workflow & Configuration
 - **`get-usage-guide`** - Get the recommended workflow for effective REPL-assisted development
@@ -197,6 +197,12 @@ CL-MCP-Server provides **45 tools** organized into categories:
 - **`evaluate-lisp`** - Execute Common Lisp code in persistent REPL session
 - **`compile-form`** - Compile code without executing to check for warnings/errors
 - **`time-execution`** - Execute code with detailed timing and memory statistics
+
+#### Live Conditions & Restarts
+- **`evaluate-with-restarts`** - Evaluate code, suspending a signalled condition *live* instead of unwinding
+- **`invoke-restart`** - Choose a restart on a suspended evaluation; `CONTINUE` resumes the computation in place
+- **`list-suspensions`** - Show evaluations awaiting a restart decision
+- **`abandon-suspension`** - Abort a suspension and release its worker thread
 
 #### Syntax & Validation
 - **`validate-syntax`** - Check code syntax without evaluation (use before saving files)
@@ -216,6 +222,13 @@ CL-MCP-Server provides **45 tools** organized into categories:
 - **`class-info`** - Inspect classes, slots, superclasses, and inheritance hierarchies
 - **`find-methods`** - Find all methods specialized on a given class
 - **`describe-generic-function`** - List a generic function's methods, including EQL specializers
+- **`who-specializes`** - Every method specialized on a class, across all generic functions
+
+#### Runtime Inspection
+- **`inspect-object`** - Inspect a *value*: slots, elements, hash entries, with handles to walk deeper
+- **`trace-call`** - Evaluate a form with functions traced, returning the transcript
+- **`macrostep`** - Expand a macro one step at a time, showing every stage
+- **`disassemble-function`** - Show a function's compiled machine code
 
 #### Error Intelligence
 - **`describe-last-error`** - Get detailed information about the most recent error
@@ -316,7 +329,7 @@ sbcl --load cl-mcp-server.asd \
 
 **Version**: 0.3.0
 
-**Status**: Alpha (human testing required). The core functionality is working and tested with 45 tools available. The API may change as we gather user feedback.
+**Status**: Alpha (human testing required). The core functionality is working and tested with 54 tools available. The API may change as we gather user feedback.
 
 ## Contributing
 

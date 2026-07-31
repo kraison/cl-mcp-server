@@ -270,7 +270,8 @@ Resolve or abandon them first; see list-suspensions."
                                          (make-string-input-stream "")
                                          out)))
                         (handler-bind
-                            ((error (lambda (c) (%suspend-for-decision susp c))))
+                            ((error (lambda (c)
+                                      (%suspend-for-decision susp c))))
                           ;; Establish the restarts an interactive REPL would
                           ;; offer, so a suspended condition has useful choices
                           ;; and not just ABORT.
@@ -282,7 +283,8 @@ Resolve or abandon them first; see list-suspensions."
                                 (suspension-values susp) values
                                 (suspension-finished-p susp) t)))
                     (error (c)
-                      (setf failure (cl-mcp-server.error-format:format-error c))))
+                      (setf failure
+                            (cl-mcp-server.error-format:format-error c))))
                (setf (suspension-stdout susp) (get-output-stream-string out))
                (unregister-suspension (suspension-id susp))
                ;; Whether we finished, aborted or blew up, wake any waiter.
@@ -344,15 +346,17 @@ timed out, or never existed; see list-suspensions." id)))
                            (restart-name
                             (let ((hit (find restart-name info
                                              :key (lambda (e) (getf e :name))
-                                             :test (lambda (a b)
-                                                     (and b (string-equal a b))))))
+                                             :test
+                                             (lambda (a b)
+                                               (and b (string-equal a b))))))
                               (and hit (getf hit :index)))))))
          (cond
            (abort (%deliver susp :abort))
            ((null index)
             (make-eval-outcome
              :state :failed
-             :error-text (format nil "No restart~@[ named ~A~] on suspension ~A."
+             :error-text (format nil
+                                 "No restart~@[ named ~A~] on suspension ~A."
                                  restart-name id)))
            ((>= index (length info))
             (make-eval-outcome
@@ -372,8 +376,9 @@ Pass `value` (a Lisp form, e.g. \"42\")."
             (%deliver susp
                       (list* :restart index
                              (when value
-                               (list (%read-value value
-                                                  (suspension-package-name susp)))))))))))))
+                               (list (%read-value
+                                      value
+                                      (suspension-package-name susp)))))))))))))
 
 (defun %read-value (text package-name)
   "Read TEXT as a Lisp form in PACKAGE-NAME, with *READ-EVAL* disabled."

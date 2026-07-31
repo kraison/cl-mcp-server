@@ -26,6 +26,9 @@ much more.
 | write a `.lisp` file | `write-lisp-file` |
 | `quickload` something new | `quicklisp-dry-run` |
 | guess whether a name exists | `apropos-search` |
+| wonder what a value actually contains | `inspect-object` |
+| wonder what a call actually did | `trace-call` |
+| want to recover from an error, not just see it | `evaluate-with-restarts` |
 
 ## Quick Start
 
@@ -209,6 +212,6 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 
 ## Detailed Reference
 
-- **All 45 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
+- **All 54 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
 - **Architecture**: `docs/explanation/architecture.md`
 - **Canon specifications**: `canon/features/`

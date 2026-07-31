@@ -46,7 +46,7 @@ while we are merely checking syntax."
                (values t count nil))
            (end-of-file ()
              (values nil 0
-                     "Unexpected end of input - unclosed parenthesis or string"))
+                     "Unexpected end of input - unclosed paren or string"))
            (reader-error (e)
              (values nil 0 (format nil "Reader error: ~A" e)))
            (error (e)
@@ -196,7 +196,8 @@ Returns a plist:
                               :backup (when backup-path
                                         (namestring backup-path)))))
             (when compile-check
-              (multiple-value-bind (failure-p diags) (compile-file-check pathname)
+              (multiple-value-bind (failure-p diags)
+                  (compile-file-check pathname)
                 (setf result (append result
                                      (list :compile-failure-p failure-p
                                            :diagnostics diags)))))
