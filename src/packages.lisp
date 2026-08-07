@@ -308,6 +308,15 @@
    #:*call-timeout*
    #:*connect-timeout*))
 
+(defpackage #:cl-mcp-server.remote-config
+  (:use #:cl)
+  (:export
+   #:armable-target-p
+   #:armable-targets
+   #:reload-config
+   #:config-error
+   #:config-error-detail))
+
 (defpackage #:cl-mcp-server.remote
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
