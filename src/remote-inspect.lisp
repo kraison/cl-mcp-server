@@ -35,34 +35,69 @@ crosses a socket from a service that has better things to do.")
 ;;; than shipped as a library so nothing has to be installed on the service.
 ;;; ==========================================================================
 
-(defun %parts-form (expression max-parts)
-  "Form that renders EXPRESSION and its parts as plain text.
-Transcript mode: retains nothing on the remote side.
+(defparameter %print-bindings%
+  "(*print-length* 20) (*print-level* 3) (*print-circle* t)
+   (*print-pretty* nil) (*print-readably* nil)"
+  "Print limits, bound in the REMOTE image. Applying them here would be too
+late: a large structure can stall a service before a byte reaches us.")
 
-The counter is a LOOP variable rather than an INCF: this form is classified
-like any other, and using a mutating operator here would either be refused
-or force an override that weakens the very check we rely on."
-  (format nil "
-(let* ((obj ~A)
-       (*print-length* 20) (*print-level* 3) (*print-circle* t)
-       (*print-pretty* nil) (*print-readably* nil))
+(defparameter %stash-flet%
+  "(flet ((stash (o)
+           (let ((h (incf (car reg))))
+             (setf (gethash h (cdr reg)) (sb-ext:make-weak-pointer o))
+             h)))"
+  "Registers an object and returns its handle. WEAK by construction: the
+table must never be the reason a service keeps its own data alive.
+
+This is the one place a mutating operator is deliberate -- registry mode
+maintains a counter, which is why it carries the :inspect-registry tier
+rather than pretending to be a read.")
+
+(defun %render (max-parts &key stash)
+  "Body that renders OBJ and its parts, assuming OBJ is already bound.
+
+With STASH, each object is also registered and prefixed with its handle;
+REG must then be bound and a STASH function in scope. The three remote forms
+differ only in how OBJ is obtained, so they share this.
+
+The counter is a LOOP variable, never an INCF: these forms are classified
+like any other, and reaching for a mutating operator would either be refused
+or force an override that weakens the check we rely on."
+  (let ((head (if stash "\"[~D] ~A~%~A~%\" (stash obj) (type-of obj)"
+                  "\"~A~%~A~%\" (type-of obj)"))
+        (part (if stash
+                  "\"  [~D] ~A~30T~A~%\" (stash val) (if named (car p) i)"
+                  "\"  ~A~30T~A~%\" (if named (car p) i)")))
+    (format nil "
   (multiple-value-bind (desc named parts)
       (handler-case (sb-impl::inspected-parts obj)
         (error (e) (values (format nil \"inspection failed: ~~A\" (type-of e))
                            nil nil)))
     (let ((plist (coerce parts 'list)))
       (with-output-to-string (s)
-        (format s \"~~A~~%~~A~~%\" (type-of obj) (prin1-to-string obj))
+        (format s ~A (prin1-to-string obj))
         (when (and desc (stringp desc))
-          (format s \"~~A~~%\" (string-right-trim (list (code-char 10)) desc)))
+          (format s \"~~A~~%\"
+                  (string-right-trim (list (code-char 10)) desc)))
         (loop for p in plist
               for i from 0 below ~D
-              do (format s \"  ~~A~~30T~~A~~%\"
-                         (if named (car p) i)
-                         (prin1-to-string (if named (cdr p) p))))
+              do (let ((val (if named (cdr p) p)))
+                   (format s ~A (prin1-to-string val))))
         (when (> (length plist) ~D)
-          (format s \"  ... ~~D more~~%\" (- (length plist) ~D)))))))"
-          expression max-parts max-parts max-parts))
+          (format s \"  ... ~~D more~~%\" (- (length plist) ~D)))~A)))"
+            head max-parts part max-parts max-parts
+            (if stash
+                ;; Spliced via ~A, so the outer FORMAT copies it verbatim:
+                ;; single escaping, exactly like head and part above.
+                "
+        (format s \"~%~D handle~:P retained (weak).~%\"
+                (hash-table-count (cdr reg)))"
+                ""))))
+
+(defun %parts-form (expression max-parts)
+  "Transcript mode: render EXPRESSION, retain nothing on the target."
+  (format nil "(let* ((obj ~A) ~A)~A)"
+          expression %print-bindings% (%render max-parts)))
 
 (defun %registry-setup-form ()
   "Form that ensures the remote registry exists.
@@ -77,77 +112,31 @@ survives on a production heap."
           *registry-var* *registry-var* *registry-var*))
 
 (defun %register-form (expression max-parts)
-  "Form that inspects EXPRESSION, registers it and each part, and renders
-the result with handles."
-  (format nil "
-(let* ((obj ~A)
-       (reg ~A)
-       (*print-length* 20) (*print-level* 3) (*print-circle* t)
-       (*print-pretty* nil) (*print-readably* nil))
-  (flet ((stash (o)
-           (let ((h (incf (car reg))))
-             (setf (gethash h (cdr reg)) (sb-ext:make-weak-pointer o))
-             h)))
-    (multiple-value-bind (desc named parts)
-        (handler-case (sb-impl::inspected-parts obj)
-          (error (e) (values (format nil \"inspection failed: ~~A\" (type-of e))
-                             nil nil)))
-      (with-output-to-string (s)
-        (format s \"[~~D] ~~A~~%~~A~~%\" (stash obj) (type-of obj)
-                (prin1-to-string obj))
-        (when (and desc (stringp desc))
-          (format s \"~~A~~%\" (string-right-trim (list (code-char 10)) desc)))
-        (let ((n 0))
-          (dolist (p (coerce parts 'list))
-            (when (< n ~D)
-              (let ((val (if named (cdr p) p)))
-                (format s \"  [~~D] ~~A~~30T~~A~~%\"
-                        (stash val) (if named (car p) n)
-                        (prin1-to-string val)))
-              (incf n))))
-        (format s \"~~%~~D handle~~:P retained (weak).~~%\"
-                (hash-table-count (cdr reg)))))))"
-          expression *registry-var* max-parts))
+  "Registry mode: inspect EXPRESSION and retain weak handles for its parts."
+  (format nil "(let* ((obj ~A) (reg ~A) ~A) ~A~A))"
+          expression *registry-var* %print-bindings%
+          %stash-flet% (%render max-parts :stash t)))
 
 (defun %fetch-form (handle max-parts)
-  "Form that inspects a previously registered handle."
+  "Walk into a retained handle.
+
+A collected handle reports that rather than resurrecting the object: the
+registry holds weak pointers, so it can never be the reason a service keeps
+its own data alive."
   (format nil "
 (let ((reg (and (boundp '~A) ~A)))
   (if (null reg)
       \"No remote registry on this target. Inspect something first.\"
       (multiple-value-bind (wp found) (gethash ~D (cdr reg))
         (if (not found)
-            (format nil \"No handle ~D on this target.\")
+            \"No handle ~D on this target.\"
             (multiple-value-bind (obj alive) (sb-ext:weak-pointer-value wp)
               (if (not alive)
-                  \"That object has been collected. Handles are weak: the
+                  \"That object has been collected. Handles are weak: the ~
 inspector never keeps a service's data alive. Re-inspect from the top.\"
-                  (let ((*print-length* 20) (*print-level* 3)
-                        (*print-circle* t) (*print-pretty* nil))
-                    (multiple-value-bind (desc named parts)
-                        (handler-case (sb-impl::inspected-parts obj)
-                          (error (e) (values (format nil \"failed: ~~A\"
-                                                     (type-of e)) nil nil)))
-                      (flet ((stash (o)
-                               (let ((h (incf (car reg))))
-                                 (setf (gethash h (cdr reg))
-                                       (sb-ext:make-weak-pointer o))
-                                 h)))
-                        (with-output-to-string (s)
-                          (format s \"[~D] ~~A~~%~~A~~%\" (type-of obj)
-                                  (prin1-to-string obj))
-                          (when (and desc (stringp desc))
-                            (format s \"~~A~~%\"
-                                    (string-right-trim (list (code-char 10))
-                                                       desc)))
-                          (loop for p in (coerce parts 'list)
-                                for i from 0 below ~D
-                                do (let ((val (if named (cdr p) p)))
-                                     (format s \"  [~~D] ~~A~~30T~~A~~%\"
-                                             (stash val)
-                                             (if named (car p) i)
-                                             (prin1-to-string val))))))))))))))"
-          *registry-var* *registry-var* handle handle handle max-parts))
+                  (let (~A) ~A~A))))))))"
+          *registry-var* *registry-var* handle handle
+          %print-bindings% %stash-flet% (%render max-parts :stash t)))
 
 (defun %clear-form ()
   "Form that drops the remote registry entirely."
