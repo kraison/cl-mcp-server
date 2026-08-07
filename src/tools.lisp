@@ -442,11 +442,12 @@ be refused."))
              ("properties" . (("target" . (("type" . "string")
                                            ("description" . "Target name"))))))
    :handler (lambda (args)
+              ;; NIL target means no such target -- an error, as in
+              ;; remote-arm. "Not armed" is a success: disarm is idempotent.
               (multiple-value-bind (target message)
                   (cl-mcp-server.remote:disarm-target
                    (cdr (assoc "target" args :test #'string=)))
-                (declare (ignore target))
-                message)))
+                (values message (null target)))))
 
   (cl-mcp:register-tool server "remote-inspect"
    :description "Inspect a VALUE on a running service -- slots, elements, hash entries -- the way inspect-object does locally. Two modes. By DEFAULT (transcript) one level is rendered and NOTHING is retained on the target; this cannot navigate. Pass registry=true to retain handles so parts can be walked with the `handle` argument: handles are WEAK pointers, so the registry never prevents the service from collecting its own data, and a collected handle says so rather than resurrecting the object. Use transcript unless you actually need to walk into something."

@@ -469,3 +469,31 @@ name would otherwise hit a struct accessor on NIL"
       (declare (ignore session))
       (is (search "ARMED"
                   (call-test-tool server "remote-targets" '()))))))
+
+(test disarm-tool-errors-on-unknown-target
+  "Matches remote-arm: a target that does not exist is an error, not a
+quiet success. 'Not armed' remains a success, since disarm is idempotent.
+
+call-test-tool discards isError, so this asserts on the handler directly."
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (let ((handler (cl-mcp.tools:tool-handler
+                    (cl-mcp.tools:get-tool (test-server-registry server)
+                                           "remote-disarm"))))
+      (multiple-value-bind (text err)
+          (funcall handler '(("target" . "no-such-target-at-all")))
+        (is-true err)
+        (is (search "No target named" text))))))
+
+(test disarm-tool-succeeds-on-unarmed-target
+  (with-armable ("calm-one")
+    (read-target "calm-one")
+    (multiple-value-bind (server session) (make-test-server)
+      (declare (ignore session))
+      (let ((handler (cl-mcp.tools:tool-handler
+                      (cl-mcp.tools:get-tool (test-server-registry server)
+                                             "remote-disarm"))))
+        (multiple-value-bind (text err)
+            (funcall handler '(("target" . "calm-one")))
+          (is-false err)
+          (is (search "not armed" text)))))))
