@@ -18,7 +18,7 @@
 
 (defstruct (target (:conc-name target-))
   name host port
-  (mode :observe)           ; :observe | :read | :mutate
+  (mode :observe)           ; :observe | :read | :developer
   (max-print-length 200)
   (max-print-level 5))
 
@@ -45,7 +45,8 @@ you cannot typo a port into production."
 ;;;
 ;;; T0 observe   metadata: arglists, docs, apropos, source location
 ;;; T1 read      evaluates a form that reads state; risk is cost, not damage
-;;; T2 mutate    setf/defun/load: behaviour changes under live traffic
+;;; T2 redefine  defun/defmethod: recoverable by redefining back
+;;; T2 state     setf/clrhash/load: usually no inverse
 ;;; T3 lifecycle quit, kill-thread, delete-package: outage-shaped
 ;;;
 ;;; Classification reads the form; it never evaluates it. This catches
@@ -59,13 +60,23 @@ you cannot typo a port into production."
     "SB-EXT:SAVE-LISP-AND-DIE" "STOP" "SHUTDOWN" "STOP-SERVER"
     "UNINTERN" "SB-POSIX:KILL" "ABORT-THREAD"))
 
-(defparameter *mutating-operators*
+(defparameter *redefining-operators*
+  '("DEFUN" "DEFMACRO" "DEFMETHOD" "DEFGENERIC" "ADD-METHOD"
+    "REMOVE-METHOD")
+  "Redefinition: recoverable by evaluating the previous definition.")
+
+(defparameter *state-operators*
   '("SETF" "SETQ" "PSETF" "PSETQ" "INCF" "DECF" "PUSH" "POP" "PUSHNEW"
-    "REMHASH" "CLRHASH" "SET" "DEFUN" "DEFMACRO" "DEFVAR" "DEFPARAMETER"
-    "DEFCLASS" "DEFMETHOD" "DEFGENERIC" "DEFSTRUCT" "DEFCONSTANT"
-    "LOAD" "COMPILE-FILE" "REQUIRE" "MAKUNBOUND" "FMAKUNBOUND"
+    "REMHASH" "CLRHASH" "SET" "MAKUNBOUND" "FMAKUNBOUND"
     "ROTATEF" "SHIFTF" "REPLACE" "FILL" "SORT" "NREVERSE" "NCONC"
-    "DELETE" "REMOVE-METHOD" "ADD-METHOD" "CHANGE-CLASS" "TRACE" "UNTRACE"))
+    "DELETE" "CHANGE-CLASS" "TRACE" "UNTRACE"
+    ;; Syntactically definitions, but not recoverable by re-evaluating
+    ;; the previous form: redefining a class obsoletes live instances,
+    ;; DEFVAR and friends alter global bindings, LOAD can do anything.
+    "DEFCLASS" "DEFSTRUCT" "DEFVAR" "DEFPARAMETER" "DEFCONSTANT"
+    "LOAD" "COMPILE-FILE" "REQUIRE")
+  "State change: usually no inverse. SORT, DELETE, NCONC and NREVERSE
+are destructive in CL and read as innocent.")
 
 (defparameter *opaque-operators*
   '("EVAL" "READ" "READ-FROM-STRING" "FUNCALL" "APPLY" "COMPILE"
@@ -85,9 +96,12 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
       ((%mentions upper *opaque-operators*)
        (values :lifecycle (format nil "~A hides its effect from inspection"
                                   (%mentions upper *opaque-operators*))))
-      ((%mentions upper *mutating-operators*)
-       (values :mutate (format nil "mutating operator ~A"
-                               (%mentions upper *mutating-operators*))))
+      ((%mentions upper *state-operators*)
+       (values :state (format nil "state operator ~A"
+                              (%mentions upper *state-operators*))))
+      ((%mentions upper *redefining-operators*)
+       (values :redefine (format nil "redefining operator ~A"
+                                 (%mentions upper *redefining-operators*))))
       (t (values :read nil)))))
 
 (defun %mentions (upper operators)
@@ -112,22 +126,20 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
 (defun %symbol-char-p (ch)
   (or (alphanumericp ch) (find ch "-*+/<>=?!%_.")))
 
-(defun tier-allowed-p (target tier)
-  "Is TIER permitted by TARGET's mode?
+(defparameter *mode-permissions*
+  '((:observe    . (:observe))
+    (:read       . (:observe :read :inspect-registry))
+    (:developer  . (:observe :read :inspect-registry
+                    :redefine :state :lifecycle)))
+  "Mode to permitted tiers. Modes are roles, not rungs: a future
+:prod-maintenance clears a cache but must never redefine, so it is not a
+subset of :developer. Adding a mode is adding a row.")
 
-:INSPECT-REGISTRY is the remote inspector's bookkeeping -- defining its
-handle table and bumping a counter. It is a genuine mutation of the target,
-so it carries its own tier rather than masquerading as :read, and the ledger
-records it under that name. It is permitted wherever :read is, because a
-weak-pointer table cannot retain the service's data or change its behaviour."
-  (let ((mode (target-mode target)))
-    (case tier
-      (:observe t)
-      (:read (member mode '(:read :mutate)))
-      (:inspect-registry (member mode '(:read :mutate)))
-      (:mutate (eq mode :mutate))
-      (:lifecycle nil)                  ; never automatic, in any mode
-      (t nil))))
+(defun tier-allowed-p (target tier)
+  "Is TIER permitted by TARGET's mode? Default-deny: an unknown mode or
+tier permits nothing."
+  (and (member tier (cdr (assoc (target-mode target) *mode-permissions*)))
+       t))
 
 ;;; ==========================================================================
 ;;; Ledger

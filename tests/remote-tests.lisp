@@ -96,13 +96,13 @@ than quietly succeeding."
   (is (eq :read (tier-of "(hash-table-count *cache*)"))))
 
 (test classify-setf-is-mutate
-  (is (eq :mutate (tier-of "(setf *x* 1)"))))
+  (is (eq :state (tier-of "(setf *x* 1)"))))
 
 (test classify-defun-is-mutate
-  (is (eq :mutate (tier-of "(defun foo () 1)"))))
+  (is (eq :redefine (tier-of "(defun foo () 1)"))))
 
 (test classify-load-is-mutate
-  (is (eq :mutate (tier-of "(load \"/tmp/x.lisp\")"))))
+  (is (eq :state (tier-of "(load \"/tmp/x.lisp\")"))))
 
 (test classify-quit-is-lifecycle
   (is (eq :lifecycle (tier-of "(sb-ext:quit)")))
@@ -134,7 +134,7 @@ refuse ordinary application code and be turned off"
 
 (test classify-reports-a-reason
   (multiple-value-bind (tier reason) (tier-of "(setf *x* 1)")
-    (is (eq :mutate tier))
+    (is (eq :state tier))
     (is (search "SETF" reason))))
 
 ;;; ==========================================================================
@@ -148,17 +148,17 @@ refuse ordinary application code and be turned off"
   (let ((tg (make-test-target :observe)))
     (is-true (cl-mcp-server.remote::tier-allowed-p tg :observe))
     (is-false (cl-mcp-server.remote::tier-allowed-p tg :read))
-    (is-false (cl-mcp-server.remote::tier-allowed-p tg :mutate))))
+    (is-false (cl-mcp-server.remote::tier-allowed-p tg :state))))
 
 (test read-mode-permits-read-not-mutate
   (let ((tg (make-test-target :read)))
     (is-true (cl-mcp-server.remote::tier-allowed-p tg :read))
-    (is-false (cl-mcp-server.remote::tier-allowed-p tg :mutate))))
+    (is-false (cl-mcp-server.remote::tier-allowed-p tg :state))))
 
 (test lifecycle-never-allowed
-  "No mode permits lifecycle. This is the property that keeps a stray
-(sb-ext:quit) from taking down a service."
-  (dolist (mode '(:observe :read :mutate))
+  "Lifecycle requires explicit human approval in developer mode; below
+developer it is always refused."
+  (dolist (mode '(:observe :read))
     (is-false (cl-mcp-server.remote::tier-allowed-p
                (make-test-target mode) :lifecycle)
               "lifecycle must be refused in ~A mode" mode)))
@@ -251,3 +251,86 @@ here is closed, so reaching the network would error rather than refuse"
                                 '(("target" . "test-tool")
                                   ("code" . "(sb-ext:quit)")))))
       (is (search "Refused" text)))))
+
+;;; ==========================================================================
+;;; Modes are roles, not rungs
+;;;
+;;; :prod-maintenance clears a cache but must never defun, so it is not a
+;;; subset of :developer. A ladder cannot express that; the table can.
+;;; ==========================================================================
+
+(defun mode-target (mode)
+  (cl-mcp-server.remote::make-target :name "m" :host "h" :port 1 :mode mode))
+
+(test redefine-is-refused-in-read-mode
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :read) :redefine)))
+
+(test state-is-refused-in-read-mode
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :read) :state)))
+
+(test developer-allows-redefine-and-state
+  (is-true (cl-mcp-server.remote::tier-allowed-p
+            (mode-target :developer) :redefine))
+  (is-true (cl-mcp-server.remote::tier-allowed-p
+            (mode-target :developer) :state)))
+
+(test developer-allows-lifecycle
+  "The user's call: restarting your own dev image is ordinary work"
+  (is-true (cl-mcp-server.remote::tier-allowed-p
+            (mode-target :developer) :lifecycle)))
+
+(test lifecycle-still-refused-below-developer
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :read) :lifecycle))
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :observe) :lifecycle)))
+
+(test unknown-mode-permits-nothing
+  "Default-deny: a typo in a mode name must not open a gate"
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :typo) :read)))
+
+(test unknown-tier-permits-nothing
+  (is-false (cl-mcp-server.remote::tier-allowed-p
+             (mode-target :developer) :no-such-tier)))
+
+;;; ==========================================================================
+;;; :redefine vs :state
+;;;
+;;; Code can be redefined back; state often cannot. The ledger needs to say
+;;; which one a session did.
+;;; ==========================================================================
+
+(test defun-classifies-as-redefine
+  (is (eq :redefine (tier-of "(defun f (x) x)"))))
+
+(test defmethod-classifies-as-redefine
+  (is (eq :redefine (tier-of "(defmethod m ((x t)) x)"))))
+
+(test setf-classifies-as-state
+  (is (eq :state (tier-of "(setf *x* 1)"))))
+
+(test clrhash-classifies-as-state
+  (is (eq :state (tier-of "(clrhash *cache*)"))))
+
+(test destructive-list-operators-classify-as-state
+  "sort, delete, nconc and nreverse read as innocent and are not"
+  (dolist (form '("(sort *rankings* #'>)" "(delete 3 *items*)"
+                  "(nconc *a* *b*)" "(nreverse *log*)"))
+    (is (eq :state (tier-of form)) "~A should be :state" form)))
+
+(test defclass-classifies-as-state
+  "Redefining a class obsoletes live instances and updates them lazily"
+  (is (eq :state (tier-of "(defclass c () ())"))))
+
+(test defstruct-classifies-as-state
+  (is (eq :state (tier-of "(defstruct s a b)"))))
+
+(test load-classifies-as-state
+  "load can do anything; it is not recoverable by re-evaluating a defun"
+  (is (eq :state (tier-of "(load \"/tmp/x.lisp\")"))))
+
+(test reads-are-still-reads
+  (is (eq :read (tier-of "(hash-table-count *cache*)"))))
