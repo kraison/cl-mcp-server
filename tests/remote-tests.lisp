@@ -427,3 +427,18 @@ return to"
     (cl-mcp-server.remote:arm-target "flagged")
     (is-true (cl-mcp-server.remote:target-armed-p
               (cl-mcp-server.remote::find-target "flagged")))))
+
+(test arming-an-unknown-target-does-not-crash
+  "find-target returns NIL rather than signalling, so a typo in a target
+name would otherwise hit a struct accessor on NIL"
+  (with-armable ("real-one")
+    (multiple-value-bind (target message)
+        (cl-mcp-server.remote:arm-target "no-such-target")
+      (is (null target))
+      (is (search "No target named" message)))))
+
+(test disarming-an-unknown-target-does-not-crash
+  (multiple-value-bind (target message)
+      (cl-mcp-server.remote:disarm-target "no-such-target")
+    (is (null target))
+    (is (search "No target named" message))))

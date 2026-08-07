@@ -213,6 +213,8 @@ tier permits nothing."
   "Put NAME into :developer mode. Returns (values target message)."
   (let ((target (find-target name)))
     (cond
+      ((null target)
+       (values nil (format nil "No target named ~A. Connect it first." name)))
       ((not (cl-mcp-server.remote-config:armable-target-p name))
        (record name :arm "" :refused
                (format nil "~A is not armable" name))
@@ -235,16 +237,20 @@ you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))
 (defun disarm-target (name)
   "Restore NAME's pre-arm mode. Returns (values target message)."
   (let ((target (find-target name)))
-    (if (not (target-armed-p target))
-        (values target (format nil "~A is not armed." name))
-        (let ((restored (target-pre-arm-mode target)))
-          (setf (target-mode target) restored
-                (target-pre-arm-mode target) nil)
-          (record name :disarm "" :disarmed
-                  (format nil "restored ~(~A~) mode" restored))
-          (values target
-                  (format nil "~A disarmed; back to ~(~A~) mode."
-                          name restored))))))
+    (cond
+      ((null target)
+       (values nil (format nil "No target named ~A." name)))
+      ((not (target-armed-p target))
+       (values target (format nil "~A is not armed." name)))
+      (t
+       (let ((restored (target-pre-arm-mode target)))
+         (setf (target-mode target) restored
+               (target-pre-arm-mode target) nil)
+         (record name :disarm "" :disarmed
+                 (format nil "restored ~(~A~) mode" restored))
+         (values target
+                 (format nil "~A disarmed; back to ~(~A~) mode."
+                         name restored)))))))
 
 ;;; ==========================================================================
 ;;; Cleanup
