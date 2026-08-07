@@ -1,6 +1,6 @@
 # cl-mcp-server Tools Reference
 
-All 59 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
+All 61 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
 
 ## Workflow
 
@@ -147,9 +147,38 @@ mutates internally. It stops accidents, not adversaries.
 
 `remote-targets` takes no arguments. `remote-ledger` takes an optional
 `target` and shows every form sent — refusals included, with timestamps.
-`remote-disconnect` takes `target`.
+`remote-disconnect` takes `target`, plus `cleanup` (boolean) to sweep
+anything this session left on the service before closing.
 
 Check the ledger before trusting a session's work against a live service.
+
+#### remote-inspect
+
+Inspect a **value** on the service. Two modes.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target` | string | yes | |
+| `code` | string | no | Expression to evaluate and inspect |
+| `handle` | integer | no | Walk into a handle from an earlier inspection |
+| `registry` | boolean | no | Retain handles for navigation (default false) |
+| `package` | string | no | |
+
+**transcript** (default) renders one level and retains nothing; it cannot
+navigate. **registry** retains handles so parts can be walked — as WEAK
+pointers, so the table can never keep a service's data alive, and a
+collected handle says so instead of resurrecting the object.
+
+Registry mode carries its own `:inspect-registry` tier (it defines a
+variable and bumps a counter), recorded in the ledger under that name. It is
+allowed wherever `read` is, but not in `observe` mode.
+
+Prefer transcript. Use registry only when you need to walk into something.
+
+#### remote-inspect-clear
+
+Takes `target`. Drops the handle registry. `remote-disconnect` with
+`cleanup: true` does this for you.
 
 ### inspect-object
 

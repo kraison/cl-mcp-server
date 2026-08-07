@@ -65,7 +65,7 @@ digraph {
 | `cl-mcp-server.asdf-tools` | `src/asdf-tools.lisp` | ASDF/Quicklisp operations |
 | `cl-mcp-server.profiling-tools` | `src/profiling-tools.lisp` | Statistical and deterministic profiling |
 | `cl-mcp-server.telos-tools` | `src/telos-tools.lisp` | Telos intent introspection (graceful degradation; see RULE-007) |
-| `cl-mcp-server.tools` | `src/tools.lisp` | Registers all 59 tools via `cl-mcp:register-tool` |
+| `cl-mcp-server.tools` | `src/tools.lisp` | Registers all 61 tools via `cl-mcp:register-tool` |
 | `cl-mcp-server` | `src/server.lisp` | Entry point: `start` |
 
 ## File Layout

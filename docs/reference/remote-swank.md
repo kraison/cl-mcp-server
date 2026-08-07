@@ -25,6 +25,8 @@ against accidents, not a defence against a determined form.
 |------|---------|----------|
 | [remote-connect](#remote-connect) | Register and verify a target | Starting work against a service |
 | [remote-eval](#remote-eval) | Evaluate a form remotely | Reading live state |
+| [remote-inspect](#remote-inspect) | Inspect a value on the service | Understanding what data holds |
+| [remote-inspect-clear](#remote-inspect-clear) | Drop the handle registry | Housekeeping |
 | [remote-targets](#remote-targets) | List registered targets | Checking what is reachable |
 | [remote-ledger](#remote-ledger) | Audit every call made | Answering "what did the agent do?" |
 | [remote-disconnect](#remote-disconnect) | Close a connection | Finishing, or forcing a reconnect |
@@ -140,6 +142,85 @@ Output printed by the form is captured and shown under `[stdout]`. A remote
 error is reported with the restarts the remote image offered — informational
 only; invoking them is not yet supported (see Limitations).
 
+## remote-inspect
+
+Inspect a **value** on the service — slots, elements, hash entries — the way
+`inspect-object` does locally.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Registered target name |
+| code | string | No | Expression to evaluate and inspect |
+| handle | integer | No | Walk into a handle from an earlier inspection |
+| registry | boolean | No | Retain handles for navigation (default: false) |
+| package | string | No | Remote package (default: `CL-USER`) |
+
+Supply one of `code` or `handle`.
+
+### Two modes
+
+**transcript** (the default) renders one level and retains **nothing** on the
+target. It cannot navigate — there is no object identity to navigate with.
+
+```
+CONS
+(1 2 3)
+The object is a proper list of length 3.
+  0                             1
+  1                             2
+  2                             3
+
+(transcript mode: nothing retained on the target; pass registry to navigate)
+```
+
+**registry** (`registry: true`) retains handles so parts can be walked:
+
+```
+[1] CONS
+(:A (10 20))
+The object is a proper list of length 2.
+  [2] 0                         :A
+  [3] 1                         (10 20)
+
+3 handles retained (weak).
+```
+
+Passing `handle: 3` then descends into `(10 20)`.
+
+### Why the registry is safe
+
+Handles are **weak pointers**. The table can never be the reason a service
+keeps an object alive, and a handle whose object has been collected says so
+rather than resurrecting it:
+
+```
+That object has been collected. Handles are weak: the inspector never keeps
+a service's data alive. Re-inspect from the top.
+```
+
+That is the property that makes retaining handles on a production heap
+acceptable at all. Prefer transcript mode regardless: use registry only when
+you actually need to walk into something.
+
+### The `inspect-registry` tier
+
+Registry mode genuinely mutates the target — it defines a variable and
+maintains a counter. Rather than masquerade as a read, those forms carry
+their own `:inspect-registry` tier, which the ledger records under that name
+so the exception is visible. It is permitted wherever `read` is, but **not**
+in `observe` mode, whose promise is metadata only.
+
+## remote-inspect-clear
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| target | string | Yes |
+
+Drops the handle registry. Entries are weak and cannot keep data alive, so
+this is housekeeping rather than a leak fix — but it is the polite thing to
+do when finished with a service. `remote-disconnect` with `cleanup: true`
+does it for you.
+
 ## remote-targets
 
 No parameters. Lists registered targets with host, port and mode.
@@ -164,11 +245,31 @@ No parameters. Lists registered targets with host, port and mode.
 
 ## remote-disconnect
 
-| Parameter | Type | Required |
-|-----------|------|----------|
-| target | string | Yes |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Target name |
+| cleanup | boolean | No | Sweep remote state first (default: false) |
 
 Closes the connection. The target keeps running; only our socket goes away.
+
+With `cleanup: true`, anything this session left on the service is swept
+first — currently the inspector's handle registry:
+
+```
+Cleanup on scratch:
+  inspector registry: Remote inspector registry cleared.
+
+Disconnected from scratch.
+```
+
+Prefer `cleanup: true` when finishing with a live service. Residue on
+someone else's production image is our fault, and an abrupt disconnect — a
+timeout, a dropped socket, a killed agent — is the normal case rather than
+the exception.
+
+Cleanup actions are registered rather than hard-coded, so each new kind of
+residue enrols its own sweep. Actions are isolated: one that fails is
+reported and the rest still run.
 
 ---
 
@@ -185,13 +286,11 @@ would suspend one of the service's live threads and hold it; if that thread
 owns a lock or a transaction, the service is wedged — and the suspension
 timeout would then *abort* a real request.
 
-**No remote inspector.** Handles hold strong references, so a remote
-registry would prevent GC on a production heap. Planned as an explicit,
-opt-in escalation rather than a default.
-
-**No cleanup on abrupt disconnect.** If a connection drops mid-call, the
-remote image may keep tracing or hold a half-open connection. Always call
-`remote-disconnect` when finished.
+**Cleanup is best-effort.** `remote-disconnect` with `cleanup: true` sweeps
+what we know about, but a connection that drops mid-call never runs it. The
+registry is weak, so the worst case is a stale table rather than retained
+memory — but a service restarted less often than the agent will accumulate
+them.
 
 **The classifier is heuristic.** See "What this does not do" above.
 
@@ -202,6 +301,11 @@ remote image may keep tracing or hold a half-open connection. Always call
   incident.
 - Prefer narrow forms. `(hash-table-count *cache*)` is a better question
   than `*cache*`.
+- Prefer `remote-inspect` over printing a large structure through
+  `remote-eval`: it renders one level with limits bound on the service.
+- Use transcript mode unless you need to walk into something. Registry mode
+  is safe, but "safe" is not "free".
+- Finish with `remote-disconnect` and `cleanup: true`.
 - Treat a refusal as information: it is telling you the form would have
   changed something.
 

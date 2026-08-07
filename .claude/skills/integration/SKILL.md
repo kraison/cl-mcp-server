@@ -31,6 +31,8 @@ much more.
 | want to recover from an error, not just see it | `evaluate-with-restarts` |
 | touch a running service | `remote-connect`, then `remote-eval` |
 | wonder what you did to a service | `remote-ledger` |
+| wonder what a value on a service holds | `remote-inspect` |
+| finish with a service | `remote-disconnect` with `cleanup` |
 
 `remote-*` tools act on a **live service**, where a mistake is not undoable.
 They are read-only and refuse mutations, but the classifier is a guardrail
@@ -218,6 +220,6 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 
 ## Detailed Reference
 
-- **All 59 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
+- **All 61 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
 - **Architecture**: `docs/explanation/architecture.md`
 - **Canon specifications**: `canon/features/`

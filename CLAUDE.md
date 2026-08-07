@@ -24,6 +24,11 @@ Do Lisp work through the `lisp` MCP tools. Do not shell out to `sbcl`.
 They are read-only: mutating and lifecycle forms are refused and printed for
 you to run. The classifier is textual and cannot see through a macro, so it
 stops accidents, not adversaries — `remote-ledger` is the real audit.
+
+- what does a value on the service hold? → `remote-inspect` (transcript by
+  default, retaining nothing; `registry` adds weak, navigable handles)
+- finishing up → `remote-disconnect` with `cleanup`, which sweeps what we left
+
 See `docs/reference/remote-swank.md`.
 
 ## For contributors working on this project

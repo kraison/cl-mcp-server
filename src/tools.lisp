@@ -1221,6 +1221,8 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | want to recover from an error | `evaluate-with-restarts` | the condition stays live |
 | touch a RUNNING service | `remote-connect` then `remote-eval` | read-only; mutations refused |
 | wonder what you did to a service | `remote-ledger` | every call, refusals included |
+| inspect a value on a service | `remote-inspect` | one level; retains nothing |
+| finish with a service | `remote-disconnect` cleanup=true | sweeps what we left |
 
 The image knows. Ask it.
 
@@ -1247,6 +1249,7 @@ Definitions persist across calls within a session.
 | validate-syntax | Check paren balance, syntax | BEFORE saving files |
 | remote-connect | Register a live SWANK target | Working against a running service |
 | remote-eval | Evaluate on a running service | Reading live state; mutations are refused |
+| remote-inspect | Inspect a value on a service | Slots and elements, optionally navigable |
 | remote-ledger | Audit of every remote call | Before trusting, and after an incident |
 | compile-form | Type check without execution | Pre-commit verification |
 | describe-symbol | Inspect symbols | Understanding APIs |
