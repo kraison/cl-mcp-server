@@ -1259,8 +1259,8 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | touch a RUNNING service | `remote-connect` then `remote-eval` | read-only; mutations refused |
 | wonder what you did to a service | `remote-ledger` | every call, refusals included |
 | inspect a value on a service | `remote-inspect` | one level; retains nothing |
-| redefine on a service you own | `remote-arm` first | refused unless allowlisted |
-| finish with a service | `remote-disconnect` cleanup=true | sweeps what we left |
+| redefine on a live service | `remote-arm` first | needs an allowlist |
+| finish with a service | `remote-disconnect` cleanup=true | sweeps residue |
 
 The image knows. Ask it.
 
