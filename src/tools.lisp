@@ -386,16 +386,31 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                                 (cl-mcp-server.remote:entry-detail e))))))))
 
   (cl-mcp:register-tool server "remote-disconnect"
-   :description "Close the connection to a remote target. Use when finished with a live service, or to force a clean reconnect."
+   :description "Close the connection to a remote target. Pass cleanup=true to first sweep anything this session left on the service -- currently the inspector's handle registry -- before disconnecting. Prefer cleanup=true when finishing with a live service: an abrupt disconnect leaves residue behind, and residue on someone else's production image is our fault."
    :schema '(("type" . "object")
              ("required" . ("target"))
              ("properties" . (("target" . (("type" . "string")
-                                           ("description" . "Target name"))))))
+                                           ("description" . "Target name")))
+                              ("cleanup" . (("type" . "boolean")
+                                            ("description" . "Sweep remote state before disconnecting (default: false)"))))))
    :handler (lambda (args)
-              (let ((name (cdr (assoc "target" args :test #'string=))))
-                (if (cl-mcp-server.remote:close-connection name)
-                    (format nil "Disconnected from ~A." name)
-                    (format nil "No open connection to ~A." name)))))
+              (let* ((name (cdr (assoc "target" args :test #'string=)))
+                     (cleanup (eq (cdr (assoc "cleanup" args :test #'string=))
+                                  t))
+                     (swept (when cleanup
+                              (cl-mcp-server.remote:run-cleanup name)))
+                     (closed (cl-mcp-server.remote:close-connection name)))
+                (with-output-to-string (s)
+                  (when cleanup
+                    (format s "Cleanup on ~A:~%" name)
+                    (if swept
+                        (loop for (label . outcome) in swept
+                              do (format s "  ~A: ~A~%" label outcome))
+                        (format s "  (nothing registered to sweep)~%"))
+                    (terpri s))
+                  (if closed
+                      (format s "Disconnected from ~A." name)
+                      (format s "No open connection to ~A." name))))))
 
   (cl-mcp:register-tool server "remote-inspect"
    :description "Inspect a VALUE on a running service -- slots, elements, hash entries -- the way inspect-object does locally. Two modes. By DEFAULT (transcript) one level is rendered and NOTHING is retained on the target; this cannot navigate. Pass registry=true to retain handles so parts can be walked with the `handle` argument: handles are WEAK pointers, so the registry never prevents the service from collecting its own data, and a collected handle says so rather than resurrecting the object. Use transcript unless you actually need to walk into something."

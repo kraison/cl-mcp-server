@@ -198,3 +198,39 @@ escaping and survives the round trip -- this cost a debug cycle once."
     (is (search "Supply either"
                 (call-test-tool server "remote-inspect"
                                 '(("target" . "nowhere")))))))
+
+;;; ==========================================================================
+;;; Cleanup
+;;;
+;;; An abrupt disconnect is the normal case, not the exception. What matters
+;;; is that one failing sweep cannot strand the others.
+;;; ==========================================================================
+
+(test inspector-registers-a-cleanup-action
+  "Loading the inspector must enrol its own sweep"
+  (is-true (find "inspector registry"
+                 cl-mcp-server.remote::*cleanup-actions*
+                 :key #'car :test #'equal)))
+
+(test cleanup-isolates-failures
+  "A sweep that signals must be reported, not abort the remaining sweeps"
+  (let ((cl-mcp-server.remote::*cleanup-actions* nil))
+    (cl-mcp-server.remote:register-cleanup
+     "boom" (lambda (target) (declare (ignore target)) (error "nope")))
+    (cl-mcp-server.remote:register-cleanup
+     "fine" (lambda (target) (declare (ignore target)) "swept"))
+    (let ((results (cl-mcp-server.remote:run-cleanup "anywhere")))
+      (is (= 2 (length results)))
+      (is (search "failed" (cdr (assoc "boom" results :test #'equal))))
+      (is (string= "swept" (cdr (assoc "fine" results :test #'equal)))))))
+
+(test register-cleanup-replaces-by-label
+  "Re-registering a label must not accumulate duplicate sweeps"
+  (let ((cl-mcp-server.remote::*cleanup-actions* nil))
+    (cl-mcp-server.remote:register-cleanup
+     "dup" (lambda (target) (declare (ignore target)) "first"))
+    (cl-mcp-server.remote:register-cleanup
+     "dup" (lambda (target) (declare (ignore target)) "second"))
+    (let ((results (cl-mcp-server.remote:run-cleanup "anywhere")))
+      (is (= 1 (length results)))
+      (is (string= "second" (cdr (first results)))))))

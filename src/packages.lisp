@@ -322,6 +322,8 @@
    #:target-mode
    #:remote-eval
    #:close-connection
+   #:register-cleanup
+   #:run-cleanup
    #:ledger-for
    #:entry-time-string
    #:entry-target

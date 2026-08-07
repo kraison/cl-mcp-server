@@ -185,6 +185,40 @@ weak-pointer table cannot retain the service's data or change its behaviour."
       t)))
 
 ;;; ==========================================================================
+;;; Cleanup
+;;;
+;;; Anything we leave behind on a service is our fault, and an abrupt
+;;; disconnect is the normal case rather than the exception -- a timeout, a
+;;; dropped socket, a killed agent. Cleanup actions are registered here so
+;;; every future residue source (traces, suspensions) is swept by the same
+;;; path rather than each growing its own.
+;;; ==========================================================================
+
+(defvar *cleanup-actions* nil
+  "List of (label . function-of-target-name). Each returns a string.")
+
+(defun register-cleanup (label fn)
+  "Register FN to run when a target is disconnected with cleanup."
+  (bt:with-lock-held (*lock*)
+    (setf *cleanup-actions*
+          (cons (cons label fn)
+                (remove label *cleanup-actions* :key #'car :test #'equal))))
+  label)
+
+(defun run-cleanup (target-name)
+  "Run every registered cleanup action against TARGET-NAME.
+
+Each action is isolated: a failure is reported and the sweep continues, so
+one unreachable step cannot strand the rest. Returns a list of (label
+. outcome-string)."
+  (let ((actions (bt:with-lock-held (*lock*) (copy-list *cleanup-actions*))))
+    (loop for (label . fn) in (reverse actions)
+          collect (cons label
+                        (handler-case (funcall fn target-name)
+                          (error (e)
+                            (format nil "failed: ~A" (type-of e))))))))
+
+;;; ==========================================================================
 ;;; Guarded evaluation
 ;;; ==========================================================================
 

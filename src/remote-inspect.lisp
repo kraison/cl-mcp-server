@@ -199,6 +199,17 @@ needs no exemption."
                                     :package package
                                     :tier-override :inspect-registry))
 
+;;; The inspector is currently the only thing that leaves state on a target,
+;;; so it registers its own sweep rather than having remote.lisp know about
+;;; inspection. Future residue sources should do the same.
+(cl-mcp-server.remote:register-cleanup
+ "inspector registry"
+ (lambda (target-name)
+   (let ((r (clear-remote-registry target-name)))
+     (if (getf r :ok)
+         (%unquote (getf r :result))
+         (or (getf r :error) "could not clear")))))
+
 ;;; ==========================================================================
 ;;; Formatting
 ;;; ==========================================================================
