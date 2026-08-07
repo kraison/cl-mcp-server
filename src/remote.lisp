@@ -113,11 +113,18 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
   (or (alphanumericp ch) (find ch "-*+/<>=?!%_.")))
 
 (defun tier-allowed-p (target tier)
-  "Is TIER permitted by TARGET's mode?"
+  "Is TIER permitted by TARGET's mode?
+
+:INSPECT-REGISTRY is the remote inspector's bookkeeping -- defining its
+handle table and bumping a counter. It is a genuine mutation of the target,
+so it carries its own tier rather than masquerading as :read, and the ledger
+records it under that name. It is permitted wherever :read is, because a
+weak-pointer table cannot retain the service's data or change its behaviour."
   (let ((mode (target-mode target)))
     (case tier
       (:observe t)
       (:read (member mode '(:read :mutate)))
+      (:inspect-registry (member mode '(:read :mutate)))
       (:mutate (eq mode :mutate))
       (:lifecycle nil)                  ; never automatic, in any mode
       (t nil))))

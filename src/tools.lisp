@@ -397,6 +397,51 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                     (format nil "Disconnected from ~A." name)
                     (format nil "No open connection to ~A." name)))))
 
+  (cl-mcp:register-tool server "remote-inspect"
+   :description "Inspect a VALUE on a running service -- slots, elements, hash entries -- the way inspect-object does locally. Two modes. By DEFAULT (transcript) one level is rendered and NOTHING is retained on the target; this cannot navigate. Pass registry=true to retain handles so parts can be walked with the `handle` argument: handles are WEAK pointers, so the registry never prevents the service from collecting its own data, and a collected handle says so rather than resurrecting the object. Use transcript unless you actually need to walk into something."
+   :schema '(("type" . "object")
+             ("required" . ("target"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Registered target name")))
+                              ("code" . (("type" . "string")
+                                         ("description" . "Expression to evaluate and inspect on the target")))
+                              ("handle" . (("type" . "integer")
+                                           ("description" . "Walk into a handle from an earlier registry-mode inspection")))
+                              ("registry" . (("type" . "boolean")
+                                             ("description" . "Retain weak handles on the target so parts can be navigated (default: false)")))
+                              ("package" . (("type" . "string")
+                                            ("description" . "Remote package context (default: CL-USER)"))))))
+   :handler (lambda (args)
+              (flet ((arg (k) (cdr (assoc k args :test #'string=))))
+                (let* ((target (arg "target"))
+                       (handle (arg "handle"))
+                       (code (arg "code"))
+                       (registry (eq (arg "registry") t))
+                       (pkg (or (arg "package") "COMMON-LISP-USER")))
+                  (cond
+                    (handle
+                     (cl-mcp-server.remote-inspect:format-remote-inspection
+                      (cl-mcp-server.remote-inspect:inspect-remote-part
+                       target handle :package pkg)
+                      :registry t))
+                    (code
+                     (cl-mcp-server.remote-inspect:format-remote-inspection
+                      (cl-mcp-server.remote-inspect:inspect-remote
+                       target code :registry registry :package pkg)
+                      :registry registry))
+                    (t (values "Supply either `code` or `handle`." t)))))))
+
+  (cl-mcp:register-tool server "remote-inspect-clear"
+   :description "Drop the remote inspector's handle registry from a target. The entries are weak and cannot keep data alive, so this is housekeeping rather than a leak fix -- but it is the polite thing to do when finished with a service."
+   :schema '(("type" . "object")
+             ("required" . ("target"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Target name"))))))
+   :handler (lambda (args)
+              (cl-mcp-server.remote-inspect:format-remote-inspection
+               (cl-mcp-server.remote-inspect:clear-remote-registry
+                (cdr (assoc "target" args :test #'string=))))))
+
   (cl-mcp:register-tool server "inspect-object"
    :description "Inspect a Lisp VALUE: its type, printed form, and parts (CLOS slots, structure slots, list/array elements, hash-table entries, symbol cells). Each part comes back with a [handle] you can pass to this tool again to walk deeper -- this is SLIME's inspector, and the navigation is the point. Supply `code` to evaluate an expression and inspect its result, or `handle` to descend into a part from a previous inspection. Use this when describe-symbol is the wrong question: describe-symbol is about a NAME, inspect-object is about a VALUE."
    :schema '(("type" . "object")

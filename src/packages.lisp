@@ -330,6 +330,16 @@
    #:entry-outcome
    #:entry-detail))
 
+(defpackage #:cl-mcp-server.remote-inspect
+  (:use #:cl)
+  (:export
+   #:inspect-remote
+   #:inspect-remote-part
+   #:clear-remote-registry
+   #:format-remote-inspection
+   #:*max-parts*
+   #:*registry-var*))
+
 (defpackage #:cl-mcp-server.tools
   (:use #:cl
         #:cl-mcp-server.evaluator
