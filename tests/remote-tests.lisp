@@ -155,9 +155,9 @@ refuse ordinary application code and be turned off"
     (is-true (cl-mcp-server.remote::tier-allowed-p tg :read))
     (is-false (cl-mcp-server.remote::tier-allowed-p tg :state))))
 
-(test lifecycle-never-allowed
-  "Lifecycle requires explicit human approval in developer mode; below
-developer it is always refused."
+(test lifecycle-refused-below-developer
+  "Lifecycle is permitted in :developer -- restarting your own dev image is
+ordinary work. Below developer it is always refused."
   (dolist (mode '(:observe :read))
     (is-false (cl-mcp-server.remote::tier-allowed-p
                (make-test-target mode) :lifecycle)
