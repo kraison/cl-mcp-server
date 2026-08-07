@@ -442,3 +442,30 @@ name would otherwise hit a struct accessor on NIL"
       (cl-mcp-server.remote:disarm-target "no-such-target")
     (is (null target))
     (is (search "No target named" message))))
+
+(test arm-tools-are-registered
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (dolist (name '("remote-arm" "remote-disarm"))
+      (is (not (null (cl-mcp.tools:get-tool
+                      (test-server-registry server) name)))
+          "tool ~A should be registered" name))))
+
+(test arm-tool-refuses-when-not-allowlisted
+  (with-armable ()
+    (read-target "tool-refused")
+    (multiple-value-bind (server session) (make-test-server)
+      (declare (ignore session))
+      (is (search "not armable"
+                  (call-test-tool server "remote-arm"
+                                  '(("target" . "tool-refused"))))))))
+
+(test targets-listing-marks-armed
+  "No clock means visibility does the clock's job"
+  (with-armable ("visible")
+    (read-target "visible")
+    (cl-mcp-server.remote:arm-target "visible")
+    (multiple-value-bind (server session) (make-test-server)
+      (declare (ignore session))
+      (is (search "ARMED"
+                  (call-test-tool server "remote-targets" '()))))))
