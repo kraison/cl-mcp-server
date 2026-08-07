@@ -1,6 +1,6 @@
 # cl-mcp-server Tools Reference
 
-All 61 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
+All 63 tools registered by `cl-mcp-server.tools:define-builtin-tools`.
 
 ## Workflow
 
@@ -179,6 +179,25 @@ Prefer transcript. Use registry only when you need to walk into something.
 
 Takes `target`. Drops the handle registry. `remote-disconnect` with
 `cleanup: true` does this for you.
+
+#### remote-arm / remote-disarm
+
+`remote-arm` takes `target` and an optional `reason` (recorded verbatim in
+the ledger). It puts the target into `developer` mode, permitting
+redefinition, state changes and lifecycle forms.
+
+**Refused unless the target is allowlisted outside the session** — in
+`~/.config/cl-mcp-server/config.sexp` as `(:armable-targets ("name" ...))`,
+or in `CL_MCP_ARMABLE_TARGETS` as a comma-separated list, which replaces the
+file rather than merging. This is what stops a session escalating itself.
+
+**There is no expiry.** The target stays armed until `remote-disarm`, which
+takes `target` and restores the mode it had before arming. `remote-targets`
+marks armed targets; nothing else will remind you.
+
+Lifecycle forms are permitted while armed. A form that kills the target
+reports "terminated, as instructed" rather than a timeout. Only `quit`,
+`exit` and `save-lisp-and-die` end the session.
 
 ### inspect-object
 

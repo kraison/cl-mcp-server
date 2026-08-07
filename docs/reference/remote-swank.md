@@ -27,6 +27,8 @@ against accidents, not a defence against a determined form.
 | [remote-eval](#remote-eval) | Evaluate a form remotely | Reading live state |
 | [remote-inspect](#remote-inspect) | Inspect a value on the service | Understanding what data holds |
 | [remote-inspect-clear](#remote-inspect-clear) | Drop the handle registry | Housekeeping |
+| [remote-arm](#remote-arm) | Permit mutation on a target | Live development on a service you own |
+| [remote-disarm](#remote-disarm) | Revoke it | Finishing development |
 | [remote-targets](#remote-targets) | List registered targets | Checking what is reachable |
 | [remote-ledger](#remote-ledger) | Audit every call made | Answering "what did the agent do?" |
 | [remote-disconnect](#remote-disconnect) | Close a connection | Finishing, or forcing a reconnect |
@@ -277,9 +279,9 @@ reported and the rest still run.
 
 These are deliberate omissions, not oversights.
 
-**No mutate mode.** The tier exists in the classifier, but no target can be
-configured to allow it. Mutation should not be automatic until the
-classifier has been lived with.
+**Mutation requires arming, and arming requires an allowlist.** See
+[Mutate mode](#mutate-mode) below. No target can be armed unless it is named
+outside the session.
 
 **No remote restarts.** `evaluate-with-restarts` is local-only. Remotely it
 would suspend one of the service's live threads and hold it; if that thread
@@ -314,3 +316,127 @@ them.
 - [evaluate-lisp](evaluate-lisp.md) — the local equivalent
 - [Introspection Tools](introspection-tools.md) — local read-only tooling
 - [SLIME/SWANK](https://slime.common-lisp.dev/) — the protocol
+
+---
+
+## Mutate mode
+
+Everything above is read-only. Mutation is off until a target is **armed**,
+and a target can only be armed if it is named in an allowlist that lives
+outside the session — that is what stops an agent escalating itself.
+
+### The allowlist
+
+A config file, overridden by an environment variable:
+
+```lisp
+;; ~/.config/cl-mcp-server/config.sexp
+(:armable-targets ("scratch" "my-dev-image"))
+```
+
+```bash
+CL_MCP_ARMABLE_TARGETS="scratch,my-dev-image"
+```
+
+The environment **replaces** the file's list rather than merging with it,
+because merge semantics cannot express removal — with merge there is no
+value of the variable that turns an entry in the file *off*. An empty string
+is a valid override meaning "nothing is armable".
+
+A missing file is not an error; it means nothing is armable, which is the
+right default. A malformed file **is** an error, surfaced rather than
+swallowed: a config that fails to parse must not silently become a config
+that permits nothing, because the two are indistinguishable at the moment it
+matters. The file is read with `*read-eval*` bound to `nil` — `#.` in a
+config file would be arbitrary code execution at startup.
+
+### remote-arm
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Registered target name |
+| reason | string | No | Recorded verbatim in the ledger |
+
+Puts the target into `:developer` mode:
+
+```
+scratch is ARMED for development.
+
+Redefinition, state changes and lifecycle forms are now permitted. It stays
+armed until you call remote-disarm.
+
+Reason: fixing the parser
+```
+
+**There is no expiry.** An armed target stays armed until disarmed. A
+sliding window would never lapse during an active session, and an absolute
+one would interrupt the redefine-test-redefine loop that is the whole point.
+The cost is that the window is bounded only by someone remembering, which is
+why `remote-targets` marks armed targets and `remote-connect` says so on
+reconnect.
+
+Disconnecting does **not** disarm: arming is a property of the target, not
+of the socket.
+
+### remote-disarm
+
+Restores the mode the target had **before** arming — not `:read`. A target
+registered in `:observe` that came back as `:read` would be more permissive
+than it started, which is privilege escalation disguised as cleanup.
+
+### Modes are roles, not rungs
+
+| mode | observe | read | inspect-registry | redefine | state | lifecycle |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| `observe` | ● | | | | | |
+| `read` | ● | ● | ● | | | |
+| `developer` | ● | ● | ● | ● | ● | ● |
+
+Permission is a table, not a ladder, because roles do not nest: a future
+`prod-maintenance` would clear a cache but never `defun`, so it is not a
+subset of `developer`. Adding a mode is adding a row.
+
+### Two mutation tiers
+
+`:redefine` is recoverable by evaluating the previous definition. `:state`
+usually is not, and the ledger records which one a session did.
+
+- **`:redefine`** — `defun`, `defmethod`, `defgeneric`, `defmacro`,
+  `add-method`, `remove-method`
+- **`:state`** — `setf`, `clrhash`, `remhash`, `incf`, `push` … plus the
+  destructive CL operators that read as innocent: `sort`, `delete`, `nconc`,
+  `nreverse`, `replace`, `fill`
+
+`defclass`, `defstruct`, `defvar`, `defparameter`, `defconstant`, `load`,
+`compile-file` and `require` classify as **`:state`** despite their syntax.
+Redefining a class obsoletes live instances and updates them lazily; `load`
+can do anything. None is undone by re-evaluating the previous form.
+
+### Lifecycle
+
+Permitted in `:developer` — restarting your own development image is
+ordinary work. A form that kills the target reports:
+
+```
+Target scratch terminated, as instructed. The connection is closed.
+```
+
+Only `quit`, `exit` and `save-lisp-and-die` end the session.
+`terminate-thread`, `delete-package` and `unintern` are lifecycle operations
+that leave the connection usable.
+
+### What mutate mode does not protect you from
+
+**The classifier still cannot see through a macro.** This was true for reads
+too, but the consequence is now worse: a false negative used to cost a
+wasted call, and in `:developer` mode it costs production behaviour. The
+ledger remains the real audit.
+
+**Redefinition is not atomic.** `defmethod` on a generic function with calls
+in flight means some requests use the old method and some the new. This is
+inherent to live redefinition, and it is why `:developer` is for services
+you own.
+
+**A well-formed mistake is undetectable.** `(setf *rate-limit* 1000)`
+returns `1000` whether or not that was the intended value. Nothing here
+distinguishes success from disaster.
