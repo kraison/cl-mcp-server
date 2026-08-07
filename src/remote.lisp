@@ -338,26 +338,31 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
                        :package package)
                     (record target-name tier form :ok)
                     (list :ok t :tier tier :result result :output output))
-                (cl-mcp-server.swank-protocol:swank-aborted (e)
-                  (record target-name tier form :remote-error
-                          (princ-to-string e))
-                  (list :ok nil :tier tier
-                        :error (princ-to-string e)
-                        :restarts
-                        (cl-mcp-server.swank-protocol:swank-aborted-restarts
-                         e)))
                 (cl-mcp-server.swank-protocol:swank-error (e)
-                  (if (session-ending-form-p form)
-                      (progn
-                        (close-connection target-name)
-                        (record target-name tier form :terminated)
-                        (list :ok t :tier tier
-                              :result (format nil "Target ~A terminated, as ~
+                  ;; One clause for the whole SWANK-ERROR family, because
+                  ;; SWANK-ABORTED is a subclass and a form that kills the
+                  ;; image can surface as either. Dispatching on the form
+                  ;; first, the condition second, is what makes a quit read
+                  ;; as terminated rather than as a bare remote error.
+                  (cond
+                    ((session-ending-form-p form)
+                     (close-connection target-name)
+                     (record target-name tier form :terminated)
+                     (list :ok t :tier tier
+                           :result (format nil "Target ~A terminated, as ~
 instructed. The connection is closed." target-name)))
-                      (progn
-                        (record target-name tier form :error
-                                (princ-to-string e))
-                        (list :ok nil :tier tier :error (princ-to-string e)))))
+                    ((typep e 'cl-mcp-server.swank-protocol:swank-aborted)
+                     (record target-name tier form :remote-error
+                             (princ-to-string e))
+                     (list :ok nil :tier tier
+                           :error (princ-to-string e)
+                           :restarts
+                           (cl-mcp-server.swank-protocol:swank-aborted-restarts
+                            e)))
+                    (t
+                     (record target-name tier form :error
+                             (princ-to-string e))
+                     (list :ok nil :tier tier :error (princ-to-string e)))))
                 (error (e)
                   (record target-name tier form :error (princ-to-string e))
                   (list :ok nil :tier tier

@@ -508,3 +508,33 @@ call-test-tool discards isError, so this asserts on the handler directly."
              "(sb-thread:terminate-thread th)"))
   (is-false (cl-mcp-server.remote::session-ending-form-p
              "(delete-package :foo)")))
+
+(test swank-aborted-is-a-subclass-of-swank-error
+  "The live bug behind the single-clause handler in remote-eval: a quit that
+surfaced as SWANK-ABORTED hit that clause first and reported 'remote error:
+NIL' instead of 'terminated'. Ordering alone cannot fix it, so the handler
+dispatches on the FORM before the condition type."
+  (is-true (subtypep 'cl-mcp-server.swank-protocol:swank-aborted
+                     'cl-mcp-server.swank-protocol:swank-error)))
+
+(defun %count-substring (needle haystack)
+  (loop with n = 0 with pos = 0
+        for hit = (search needle haystack :start2 pos)
+        while hit do (incf n) (setf pos (1+ hit))
+        finally (return n)))
+
+(test remote-eval-has-one-swank-error-clause
+  "Two sibling clauses would silently re-introduce the bug: whichever came
+first would shadow the other for the whole family.
+
+Resolves the path through ASDF: a relative pathname would make this pass or
+fail depending on the caller's working directory."
+  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
+                                              "src/remote.lisp"))
+         (src (with-open-file (in path)
+                (let ((text (make-string (file-length in))))
+                  (subseq text 0 (read-sequence text in))))))
+    (is (= 1 (%count-substring "swank-protocol:swank-error (e)" src))
+        "expected exactly one swank-error handler clause")
+    (is (= 0 (%count-substring "swank-protocol:swank-aborted (e)" src))
+        "swank-aborted must not have its own sibling clause")))
