@@ -339,7 +339,10 @@
    #:entry-tier
    #:entry-form
    #:entry-outcome
-   #:entry-detail))
+   #:entry-detail
+   #:arm-target
+   #:disarm-target
+   #:target-armed-p))
 
 (defpackage #:cl-mcp-server.remote-inspect
   (:use #:cl)

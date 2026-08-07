@@ -334,3 +334,96 @@ here is closed, so reaching the network would error rather than refuse"
 
 (test reads-are-still-reads
   (is (eq :read (tier-of "(hash-table-count *cache*)"))))
+
+;;; ==========================================================================
+;;; Arming
+;;; ==========================================================================
+
+(defmacro with-armable ((&rest names) &body body)
+  "Run BODY with NAMES as the allowlist."
+  `(let ((cl-mcp-server.remote-config::*armable* (list ,@names)))
+     ,@body))
+
+(test arming-is-refused-when-not-allowlisted
+  "The gate: a session must not be able to arm a target it chose"
+  (with-armable ()
+    (read-target "not-listed")
+    (multiple-value-bind (target message)
+        (cl-mcp-server.remote:arm-target "not-listed")
+      (is (null target))
+      (is (search "not armable" message)))))
+
+(test arming-succeeds-when-allowlisted
+  (with-armable ("armable-one")
+    (read-target "armable-one")
+    (is (not (null (cl-mcp-server.remote:arm-target "armable-one"))))
+    (is (eq :developer
+            (cl-mcp-server.remote::target-mode
+             (cl-mcp-server.remote::find-target "armable-one"))))))
+
+(test disarm-restores-the-pre-arm-mode
+  "A target registered in :observe must not come back as :read -- that is
+privilege escalation disguised as cleanup"
+  (with-armable ("obs")
+    (cl-mcp-server.remote:register-target "obs" "127.0.0.1" 1 :mode :observe)
+    (cl-mcp-server.remote:arm-target "obs")
+    (cl-mcp-server.remote:disarm-target "obs")
+    (is (eq :observe
+            (cl-mcp-server.remote::target-mode
+             (cl-mcp-server.remote::find-target "obs"))))))
+
+(test disarm-restores-read-for-a-read-target
+  (with-armable ("rd")
+    (read-target "rd")
+    (cl-mcp-server.remote:arm-target "rd")
+    (cl-mcp-server.remote:disarm-target "rd")
+    (is (eq :read
+            (cl-mcp-server.remote::target-mode
+             (cl-mcp-server.remote::find-target "rd"))))))
+
+(test arming-twice-does-not-lose-the-pre-arm-mode
+  "Idempotent: a second arm must not record :developer as the mode to
+return to"
+  (with-armable ("twice")
+    (cl-mcp-server.remote:register-target "twice" "127.0.0.1" 1
+                                          :mode :observe)
+    (cl-mcp-server.remote:arm-target "twice")
+    (cl-mcp-server.remote:arm-target "twice")
+    (cl-mcp-server.remote:disarm-target "twice")
+    (is (eq :observe
+            (cl-mcp-server.remote::target-mode
+             (cl-mcp-server.remote::find-target "twice"))))))
+
+(test disarming-an-unarmed-target-is-harmless
+  (with-armable ("calm")
+    (read-target "calm")
+    (multiple-value-bind (target message)
+        (cl-mcp-server.remote:disarm-target "calm")
+      (declare (ignore target))
+      (is (search "not armed" message)))))
+
+(test arming-is-a-ledger-event
+  (with-armable ("logged")
+    (read-target "logged")
+    (cl-mcp-server.remote:arm-target "logged" "fixing the parser")
+    (let ((entries (cl-mcp-server.remote:ledger-for "logged")))
+      (is (find :arm entries :key #'cl-mcp-server.remote:entry-tier))
+      (is (find-if (lambda (e)
+                     (search "fixing the parser"
+                             (or (cl-mcp-server.remote:entry-detail e) "")))
+                   entries)))))
+
+(test disarming-is-a-ledger-event
+  (with-armable ("logged2")
+    (read-target "logged2")
+    (cl-mcp-server.remote:arm-target "logged2")
+    (cl-mcp-server.remote:disarm-target "logged2")
+    (is (find :disarm (cl-mcp-server.remote:ledger-for "logged2")
+              :key #'cl-mcp-server.remote:entry-tier))))
+
+(test armed-target-reports-armed
+  (with-armable ("flagged")
+    (read-target "flagged")
+    (cl-mcp-server.remote:arm-target "flagged")
+    (is-true (cl-mcp-server.remote:target-armed-p
+              (cl-mcp-server.remote::find-target "flagged")))))

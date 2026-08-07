@@ -19,6 +19,7 @@
 (defstruct (target (:conc-name target-))
   name host port
   (mode :observe)           ; :observe | :read | :developer
+  (pre-arm-mode nil)        ; mode to restore on disarm; NIL when unarmed
   (max-print-length 200)
   (max-print-level 5))
 
@@ -195,6 +196,55 @@ tier permits nothing."
       (cl-mcp-server.swank-protocol:disconnect conn)
       (bt:with-lock-held (*lock*) (remhash name *connections*))
       t)))
+
+;;; ==========================================================================
+;;; Arming
+;;;
+;;; Mutation is off until a target is armed, and a target may only be armed
+;;; if it is allowlisted outside the session. There is no expiry: an armed
+;;; target stays armed until disarmed, which is why the tools make armed
+;;; state loud. See docs/reference/remote-swank.md.
+;;; ==========================================================================
+
+(defun target-armed-p (target)
+  (and (target-pre-arm-mode target) t))
+
+(defun arm-target (name &optional reason)
+  "Put NAME into :developer mode. Returns (values target message)."
+  (let ((target (find-target name)))
+    (cond
+      ((not (cl-mcp-server.remote-config:armable-target-p name))
+       (record name :arm "" :refused
+               (format nil "~A is not armable" name))
+       (values nil
+               (format nil "Target ~A is not armable.~%~%Add it to ~
+~~/.config/cl-mcp-server/config.sexp:~%  (:armable-targets (~S))~%~%~
+or set CL_MCP_ARMABLE_TARGETS. The allowlist lives outside the session ~
+deliberately." name name)))
+      ((target-armed-p target)
+       (values target (format nil "~A is already armed." name)))
+      (t
+       (setf (target-pre-arm-mode target) (target-mode target)
+             (target-mode target) :developer)
+       (record name :arm "" :armed reason)
+       (values target
+               (format nil "~A is ARMED for development.~%~%Redefinition, ~
+state changes and lifecycle forms are now permitted. It stays armed until ~
+you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))
+
+(defun disarm-target (name)
+  "Restore NAME's pre-arm mode. Returns (values target message)."
+  (let ((target (find-target name)))
+    (if (not (target-armed-p target))
+        (values target (format nil "~A is not armed." name))
+        (let ((restored (target-pre-arm-mode target)))
+          (setf (target-mode target) restored
+                (target-pre-arm-mode target) nil)
+          (record name :disarm "" :disarmed
+                  (format nil "restored ~(~A~) mode" restored))
+          (values target
+                  (format nil "~A disarmed; back to ~(~A~) mode."
+                          name restored))))))
 
 ;;; ==========================================================================
 ;;; Cleanup
