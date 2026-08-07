@@ -497,3 +497,14 @@ call-test-tool discards isError, so this asserts on the handler directly."
             (funcall handler '(("target" . "calm-one")))
           (is-false err)
           (is (search "not armed" text)))))))
+
+(test session-ending-operators-are-recognised
+  "quit ends the session; terminate-thread does not"
+  (is-true (cl-mcp-server.remote::session-ending-form-p "(sb-ext:quit)"))
+  (is-true (cl-mcp-server.remote::session-ending-form-p "(exit)"))
+  (is-true (cl-mcp-server.remote::session-ending-form-p
+            "(sb-ext:save-lisp-and-die \"x\")"))
+  (is-false (cl-mcp-server.remote::session-ending-form-p
+             "(sb-thread:terminate-thread th)"))
+  (is-false (cl-mcp-server.remote::session-ending-form-p
+             "(delete-package :foo)")))

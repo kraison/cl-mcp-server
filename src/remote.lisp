@@ -105,6 +105,14 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
                                  (%mentions upper *redefining-operators*))))
       (t (values :read nil)))))
 
+(defparameter *session-ending-operators*
+  '("QUIT" "EXIT" "SB-EXT:QUIT" "SB-EXT:EXIT" "SB-EXT:SAVE-LISP-AND-DIE")
+  "Lifecycle operators that end the SWANK session. TERMINATE-THREAD and
+DELETE-PACKAGE are lifecycle but leave the connection usable.")
+
+(defun session-ending-form-p (form-string)
+  (and (%mentions (string-upcase form-string) *session-ending-operators*) t))
+
 (defun %mentions (upper operators)
   "First operator in OPERATORS appearing as a token of UPPER."
   (find-if (lambda (op) (%token-present-p upper op)) operators))
@@ -338,6 +346,18 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
                         :restarts
                         (cl-mcp-server.swank-protocol:swank-aborted-restarts
                          e)))
+                (cl-mcp-server.swank-protocol:swank-error (e)
+                  (if (session-ending-form-p form)
+                      (progn
+                        (close-connection target-name)
+                        (record target-name tier form :terminated)
+                        (list :ok t :tier tier
+                              :result (format nil "Target ~A terminated, as ~
+instructed. The connection is closed." target-name)))
+                      (progn
+                        (record target-name tier form :error
+                                (princ-to-string e))
+                        (list :ok nil :tier tier :error (princ-to-string e)))))
                 (error (e)
                   (record target-name tier form :error (princ-to-string e))
                   (list :ok nil :tier tier
