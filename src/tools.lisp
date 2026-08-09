@@ -3,6 +3,15 @@
 
 (in-package #:cl-mcp-server.tools)
 
+;;; Bound rather than inlined: as literals these exceed 80 columns, and the
+;;; ~ line-continuation that would fix that is not interpreted inside a
+;;; string passed as a ~A argument -- it printed a literal tilde once.
+;;; defparameter, not defconstant: string constants are not EQL on reload.
+(defparameter *armed-note*
+  "This target is ARMED: mutation is permitted.")
+(defparameter *read-only-note*
+  "Mutating and lifecycle forms will be refused.")
+
 ;;; ==========================================================================
 ;;; Tool Definitions
 ;;; ==========================================================================
@@ -307,8 +316,13 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                     (if (getf probe :ok)
                         (values
                          (format nil "Target ~A registered: ~A:~D, ~(~A~) mode.~%~
-Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
-                                 name host port mode (getf probe :result))
+Reachable; remote SBCL ~A.~%~%~A"
+                                 name host port mode (getf probe :result)
+                                 (if (cl-mcp-server.remote:target-armed-p
+                                      (cl-mcp-server.remote::find-target
+                                       name))
+                                     *armed-note*
+                                     *read-only-note*))
                          nil)
                         (values
                          (format nil "Target ~A registered but NOT reachable:~%  ~A"
@@ -316,7 +330,7 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                          t)))))))
 
   (cl-mcp:register-tool server "remote-eval"
-   :description "Evaluate a form on a named remote target. The form is CLASSIFIED before it is sent: forms that read state run, forms that mutate (setf, defun, load) or affect lifecycle (quit, kill-thread, delete-package) are REFUSED and printed for you to run yourself. Print limits are bound in the remote image, so a large structure cannot flood or stall the service. Every call -- including refusals -- is recorded in the ledger."
+   :description "Evaluate a form on a named remote target. The form is CLASSIFIED before it is sent: forms that read state run, while forms that mutate (setf, defun, load) or affect lifecycle (quit, kill-thread, delete-package) are REFUSED and printed for you to run yourself -- unless the target has been armed with remote-arm, which permits them. Print limits are bound in the remote image, so a large structure cannot flood or stall the service. Every call -- including refusals -- is recorded in the ledger."
    :schema '(("type" . "object")
              ("required" . ("target" "code"))
              ("properties" . (("target" . (("type" . "string")
@@ -353,11 +367,12 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                     (with-output-to-string (s)
                       (format s "~D target~:P:~%~%" (length targets))
                       (dolist (tg targets)
-                        (format s "  ~A~%    ~A:~D  ~(~A~) mode~%"
+                        (format s "  ~A~30T~A:~D  ~(~A~)~:[~; [ARMED]~]~%"
                                 (cl-mcp-server.remote:target-name tg)
                                 (cl-mcp-server.remote:target-host tg)
                                 (cl-mcp-server.remote:target-port tg)
-                                (cl-mcp-server.remote:target-mode tg))))))))
+                                (cl-mcp-server.remote:target-mode tg)
+                                (cl-mcp-server.remote:target-armed-p tg))))))))
 
   (cl-mcp:register-tool server "remote-ledger"
    :description "Show every form this session has sent to remote targets, including refused ones, with outcome and tier. This is the answer to 'what has the agent done to my live service?' -- check it before trusting anything, and after any incident."
@@ -411,6 +426,35 @@ Reachable; remote SBCL ~A.~%~%Mutating and lifecycle forms will be refused."
                   (if closed
                       (format s "Disconnected from ~A." name)
                       (format s "No open connection to ~A." name))))))
+
+  (cl-mcp:register-tool server "remote-arm"
+   :description "Arm a target for development: permits redefinition, state changes and lifecycle forms on a RUNNING service. Refused unless the target is allowlisted in ~/.config/cl-mcp-server/config.sexp or CL_MCP_ARMABLE_TARGETS -- the allowlist lives outside the session, so this tool cannot be talked into arming a target you never named (it is a guardrail, not a sandbox). There is NO expiry: the target stays armed until remote-disarm. Use only on a service you own and are actively developing."
+   :schema '(("type" . "object")
+             ("required" . ("target"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Registered target name")))
+                              ("reason" . (("type" . "string")
+                                           ("description" . "Why, recorded verbatim in the ledger"))))))
+   :handler (lambda (args)
+              (flet ((arg (k) (cdr (assoc k args :test #'string=))))
+                (multiple-value-bind (target message)
+                    (cl-mcp-server.remote:arm-target (arg "target")
+                                                     (arg "reason"))
+                  (values message (null target))))))
+
+  (cl-mcp:register-tool server "remote-disarm"
+   :description "Disarm a target, restoring the mode it had before arming. Call this when finished developing against a live service."
+   :schema '(("type" . "object")
+             ("required" . ("target"))
+             ("properties" . (("target" . (("type" . "string")
+                                           ("description" . "Target name"))))))
+   :handler (lambda (args)
+              ;; NIL target means no such target -- an error, as in
+              ;; remote-arm. "Not armed" is a success: disarm is idempotent.
+              (multiple-value-bind (target message)
+                  (cl-mcp-server.remote:disarm-target
+                   (cdr (assoc "target" args :test #'string=)))
+                (values message (null target)))))
 
   (cl-mcp:register-tool server "remote-inspect"
    :description "Inspect a VALUE on a running service -- slots, elements, hash entries -- the way inspect-object does locally. Two modes. By DEFAULT (transcript) one level is rendered and NOTHING is retained on the target; this cannot navigate. Pass registry=true to retain handles so parts can be walked with the `handle` argument: handles are WEAK pointers, so the registry never prevents the service from collecting its own data, and a collected handle says so rather than resurrecting the object. Use transcript unless you actually need to walk into something."
@@ -1222,7 +1266,8 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | touch a RUNNING service | `remote-connect` then `remote-eval` | read-only; mutations refused |
 | wonder what you did to a service | `remote-ledger` | every call, refusals included |
 | inspect a value on a service | `remote-inspect` | one level; retains nothing |
-| finish with a service | `remote-disconnect` cleanup=true | sweeps what we left |
+| redefine on a live service | `remote-arm` first | needs an allowlist |
+| finish with a service | `remote-disconnect` cleanup=true | sweeps residue |
 
 The image knows. Ask it.
 

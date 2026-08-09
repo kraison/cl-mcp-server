@@ -35,7 +35,7 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 - **NEW**: Paren matching tools -- the agents struggle with lots of parens
 - **Persistent REPL**: Define functions once, use them repeatedly in the same session
-- **61 tools**: full-on REPL power for evaluation, introspection, profiling, and more
+- **63 tools**: full-on REPL power for evaluation, introspection, profiling, and more
 - **Rich Error Reporting**: Get concise default errors, with detailed backtraces and condition information on demand
 - **Stream Separation**: Clearly distinguish between return values, printed output, and warnings
 - **Safe Execution**: Server never crashes—all user code errors are caught and reported
@@ -187,7 +187,7 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### Available Tools
 
-CL-MCP-Server provides **61 tools** organized into categories:
+CL-MCP-Server provides **63 tools** organized into categories:
 
 #### Workflow & Configuration
 - **`get-usage-guide`** - Get the recommended workflow for effective REPL-assisted development
@@ -230,11 +230,12 @@ CL-MCP-Server provides **61 tools** organized into categories:
 - **`macrostep`** - Expand a macro one step at a time, showing every stage
 - **`disassemble-function`** - Show a function's compiled machine code
 
-#### Remote Services (read-only)
+#### Remote Services (read-only by default)
 - **`remote-connect`** - Register and verify a named SWANK target for a running service
 - **`remote-eval`** - Evaluate a form remotely; mutating and lifecycle forms are refused
 - **`remote-inspect`** - Inspect a value on the service; optional weak handles for navigation
 - **`remote-inspect-clear`** - Drop the remote handle registry
+- **`remote-arm`** / **`remote-disarm`** - Permit mutation on a target, then revoke it. Refused unless the target is allowlisted outside the session
 - **`remote-targets`** - List registered targets with host, port and mode
 - **`remote-ledger`** - Every form sent to a service, refusals included, with timestamps
 - **`remote-disconnect`** - Close a connection, optionally sweeping remote state first
@@ -342,7 +343,7 @@ sbcl --load cl-mcp-server.asd \
 
 **Version**: 0.3.0
 
-**Status**: Alpha (human testing required). The core functionality is working and tested with 61 tools available. The API may change as we gather user feedback.
+**Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
 ## Contributing
 

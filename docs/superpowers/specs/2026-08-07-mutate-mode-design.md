@@ -105,8 +105,14 @@ the stored pre-arm mode is not overwritten by a second arm.
 ### 4. The allowlist
 
 Arming is refused unless the target is named as armable **outside the
-session**. This is the actual gate: it prevents the agent escalating a
+session**. This is the gate: the arming tool cannot be talked into arming a
 target that was never intended to be armable.
+
+It is a guardrail, not a sandbox. `evaluate-lisp` runs in this same image
+and can set these internals directly, so the allowlist stops the accident
+and the "I decided this was fine" case — not an agent writing arbitrary
+Lisp. That is the same standard the classifier is held to, and the ledger
+remains the audit.
 
 Two layers, file first, environment second.
 

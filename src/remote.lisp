@@ -18,18 +18,50 @@
 
 (defstruct (target (:conc-name target-))
   name host port
-  (mode :observe)           ; :observe | :read | :mutate
+  (mode :observe)           ; :observe | :read | :developer
+  (pre-arm-mode nil)        ; mode to restore on disarm; NIL when unarmed
   (max-print-length 200)
   (max-print-level 5))
 
 (defun register-target (name host port &key (mode :observe)
                                             (max-print-length 200))
   "Register a named target. Names, not raw host/port, are what tools accept:
-you cannot typo a port into production."
-  (bt:with-lock-held (*lock*)
-    (setf (gethash name *targets*)
-          (make-target :name name :host host :port port :mode mode
-                       :max-print-length max-print-length)))
+you cannot typo a port into production.
+
+Re-registering an existing target UPDATES it rather than replacing it, so a
+reconnect does not silently drop arming. Replacing the struct would leave
+the ledger showing an :arm with no :disarm while the target was in fact
+unarmed -- the audit and reality disagreeing in the one artifact meant to
+settle it."
+  (let ((stale nil))
+    (bt:with-lock-held (*lock*)
+      (let ((existing (gethash name *targets*)))
+        (cond
+          ((null existing)
+           (setf (gethash name *targets*)
+                 (make-target :name name :host host :port port :mode mode
+                              :max-print-length max-print-length)))
+          (t
+           (let ((armed (target-armed-p existing))
+                 (moved (or (not (equal (target-host existing) host))
+                            (not (eql (target-port existing) port)))))
+             (setf (target-host existing) host
+                   (target-port existing) port
+                   (target-max-print-length existing) max-print-length)
+             ;; Unhook the stale socket INSIDE the lock: leaving it visible
+             ;; even briefly lets a concurrent call send to the old image,
+             ;; which is the failure this guard exists to prevent.
+             (when moved
+               (setf stale (gethash name *connections*))
+               (remhash name *connections*))
+             ;; An armed target stays armed, and MODE becomes what disarm
+             ;; restores rather than overwriting :developer.
+             (if armed
+                 (setf (target-pre-arm-mode existing) mode)
+                 (setf (target-mode existing) mode)))))))
+    ;; I/O outside the lock.
+    (when stale
+      (ignore-errors (cl-mcp-server.swank-protocol:disconnect stale))))
   name)
 
 (defun find-target (name)
@@ -45,7 +77,8 @@ you cannot typo a port into production."
 ;;;
 ;;; T0 observe   metadata: arglists, docs, apropos, source location
 ;;; T1 read      evaluates a form that reads state; risk is cost, not damage
-;;; T2 mutate    setf/defun/load: behaviour changes under live traffic
+;;; T2 redefine  defun/defmethod: recoverable by redefining back
+;;; T2 state     setf/clrhash/load: usually no inverse
 ;;; T3 lifecycle quit, kill-thread, delete-package: outage-shaped
 ;;;
 ;;; Classification reads the form; it never evaluates it. This catches
@@ -59,13 +92,23 @@ you cannot typo a port into production."
     "SB-EXT:SAVE-LISP-AND-DIE" "STOP" "SHUTDOWN" "STOP-SERVER"
     "UNINTERN" "SB-POSIX:KILL" "ABORT-THREAD"))
 
-(defparameter *mutating-operators*
+(defparameter *redefining-operators*
+  '("DEFUN" "DEFMACRO" "DEFMETHOD" "DEFGENERIC" "ADD-METHOD"
+    "REMOVE-METHOD")
+  "Redefinition: recoverable by evaluating the previous definition.")
+
+(defparameter *state-operators*
   '("SETF" "SETQ" "PSETF" "PSETQ" "INCF" "DECF" "PUSH" "POP" "PUSHNEW"
-    "REMHASH" "CLRHASH" "SET" "DEFUN" "DEFMACRO" "DEFVAR" "DEFPARAMETER"
-    "DEFCLASS" "DEFMETHOD" "DEFGENERIC" "DEFSTRUCT" "DEFCONSTANT"
-    "LOAD" "COMPILE-FILE" "REQUIRE" "MAKUNBOUND" "FMAKUNBOUND"
+    "REMHASH" "CLRHASH" "SET" "MAKUNBOUND" "FMAKUNBOUND"
     "ROTATEF" "SHIFTF" "REPLACE" "FILL" "SORT" "NREVERSE" "NCONC"
-    "DELETE" "REMOVE-METHOD" "ADD-METHOD" "CHANGE-CLASS" "TRACE" "UNTRACE"))
+    "DELETE" "CHANGE-CLASS" "TRACE" "UNTRACE"
+    ;; Syntactically definitions, but not recoverable by re-evaluating
+    ;; the previous form: redefining a class obsoletes live instances,
+    ;; DEFVAR and friends alter global bindings, LOAD can do anything.
+    "DEFCLASS" "DEFSTRUCT" "DEFVAR" "DEFPARAMETER" "DEFCONSTANT"
+    "LOAD" "COMPILE-FILE" "REQUIRE")
+  "State change: usually no inverse. SORT, DELETE, NCONC and NREVERSE
+are destructive in CL and read as innocent.")
 
 (defparameter *opaque-operators*
   '("EVAL" "READ" "READ-FROM-STRING" "FUNCALL" "APPLY" "COMPILE"
@@ -85,10 +128,21 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
       ((%mentions upper *opaque-operators*)
        (values :lifecycle (format nil "~A hides its effect from inspection"
                                   (%mentions upper *opaque-operators*))))
-      ((%mentions upper *mutating-operators*)
-       (values :mutate (format nil "mutating operator ~A"
-                               (%mentions upper *mutating-operators*))))
+      ((%mentions upper *state-operators*)
+       (values :state (format nil "state operator ~A"
+                              (%mentions upper *state-operators*))))
+      ((%mentions upper *redefining-operators*)
+       (values :redefine (format nil "redefining operator ~A"
+                                 (%mentions upper *redefining-operators*))))
       (t (values :read nil)))))
+
+(defparameter *session-ending-operators*
+  '("QUIT" "EXIT" "SB-EXT:QUIT" "SB-EXT:EXIT" "SB-EXT:SAVE-LISP-AND-DIE")
+  "Lifecycle operators that end the SWANK session. TERMINATE-THREAD and
+DELETE-PACKAGE are lifecycle but leave the connection usable.")
+
+(defun session-ending-form-p (form-string)
+  (and (%mentions (string-upcase form-string) *session-ending-operators*) t))
 
 (defun %mentions (upper operators)
   "First operator in OPERATORS appearing as a token of UPPER."
@@ -112,22 +166,20 @@ lifecycle: we would rather refuse a safe form than allow a destructive one.")
 (defun %symbol-char-p (ch)
   (or (alphanumericp ch) (find ch "-*+/<>=?!%_.")))
 
-(defun tier-allowed-p (target tier)
-  "Is TIER permitted by TARGET's mode?
+(defparameter *mode-permissions*
+  '((:observe    . (:observe))
+    (:read       . (:observe :read :inspect-registry))
+    (:developer  . (:observe :read :inspect-registry
+                    :redefine :state :lifecycle)))
+  "Mode to permitted tiers. Modes are roles, not rungs: a future
+:prod-maintenance clears a cache but must never redefine, so it is not a
+subset of :developer. Adding a mode is adding a row.")
 
-:INSPECT-REGISTRY is the remote inspector's bookkeeping -- defining its
-handle table and bumping a counter. It is a genuine mutation of the target,
-so it carries its own tier rather than masquerading as :read, and the ledger
-records it under that name. It is permitted wherever :read is, because a
-weak-pointer table cannot retain the service's data or change its behaviour."
-  (let ((mode (target-mode target)))
-    (case tier
-      (:observe t)
-      (:read (member mode '(:read :mutate)))
-      (:inspect-registry (member mode '(:read :mutate)))
-      (:mutate (eq mode :mutate))
-      (:lifecycle nil)                  ; never automatic, in any mode
-      (t nil))))
+(defun tier-allowed-p (target tier)
+  "Is TIER permitted by TARGET's mode? Default-deny: an unknown mode or
+tier permits nothing."
+  (and (member tier (cdr (assoc (target-mode target) *mode-permissions*)))
+       t))
 
 ;;; ==========================================================================
 ;;; Ledger
@@ -185,6 +237,63 @@ weak-pointer table cannot retain the service's data or change its behaviour."
       t)))
 
 ;;; ==========================================================================
+;;; Arming
+;;;
+;;; Mutation is off until a target is armed, and a target may only be armed
+;;; if it is allowlisted outside the session. There is no expiry: an armed
+;;; target stays armed until disarmed, which is why the tools make armed
+;;; state loud. See docs/reference/remote-swank.md.
+;;; ==========================================================================
+
+(defun target-armed-p (target)
+  (and (target-pre-arm-mode target) t))
+
+(defun arm-target (name &optional reason)
+  "Put NAME into :developer mode. Returns (values target message)."
+  (let ((target (find-target name)))
+    (cond
+      ((null target)
+       (values nil (format nil "No target named ~A. Connect it first." name)))
+      ((not (cl-mcp-server.remote-config:armable-target-p name))
+       (record name :arm "" :refused
+               (format nil "~A is not armable" name))
+       (values nil
+               (format nil "Target ~A is not armable.~%~%Add it to ~
+~~/.config/cl-mcp-server/config.sexp:~%  (:armable-targets (~S))~%~%~
+or set CL_MCP_ARMABLE_TARGETS. The allowlist lives outside the session ~
+deliberately." name name)))
+      ((target-armed-p target)
+       (values target (format nil "~A is already armed." name)))
+      (t
+       (bt:with-lock-held (*lock*)
+         (setf (target-pre-arm-mode target) (target-mode target)
+               (target-mode target) :developer))
+       (record name :arm "" :armed reason)
+       (values target
+               (format nil "~A is ARMED for development.~%~%Redefinition, ~
+state changes and lifecycle forms are now permitted. It stays armed until ~
+you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))
+
+(defun disarm-target (name)
+  "Restore NAME's pre-arm mode. Returns (values target message)."
+  (let ((target (find-target name)))
+    (cond
+      ((null target)
+       (values nil (format nil "No target named ~A." name)))
+      ((not (target-armed-p target))
+       (values target (format nil "~A is not armed." name)))
+      (t
+       (let ((restored (target-pre-arm-mode target)))
+         (bt:with-lock-held (*lock*)
+           (setf (target-mode target) restored
+                 (target-pre-arm-mode target) nil))
+         (record name :disarm "" :disarmed
+                 (format nil "restored ~(~A~) mode" restored))
+         (values target
+                 (format nil "~A disarmed; back to ~(~A~) mode."
+                         name restored)))))))
+
+;;; ==========================================================================
 ;;; Cleanup
 ;;;
 ;;; Anything we leave behind on a service is our fault, and an abrupt
@@ -233,6 +342,51 @@ flood or stall the service before a single byte reaches us."
           (target-max-print-level target)
           form))
 
+(defun target-responds-p (name)
+  "Can NAME still answer a trivial form? Returns T, NIL, or :INCONCLUSIVE.
+
+Used to confirm a target actually died rather than trusting the form text.
+
+Tries the EXISTING connection first. An aborted form unwinds via
+throw-to-toplevel and leaves that connection usable, so a live answer here
+is decisive and costs no new socket.
+
+A TIMEOUT on that probe is :INCONCLUSIVE, never NIL: an alive-but-stalled
+image (long GC, blocked lock) would otherwise look dead, and a SWANK server
+started without :dont-close refuses the fallback socket, so both probes
+would fail and we would report a healthy service as terminated."
+  (let ((target (find-target name)))
+    (when target
+      (let ((existing (bt:with-lock-held (*lock*)
+                        (gethash name *connections*))))
+        (multiple-value-bind (alive inconclusive)
+            (if (null existing)
+                (values nil nil)
+                (handler-case
+                    (progn (cl-mcp-server.swank-protocol:rex existing "1"
+                                                             :timeout 5)
+                           (values t nil))
+                  ;; An abort came FROM the image, so it is alive.
+                  (cl-mcp-server.swank-protocol:swank-aborted ()
+                    (values t nil))
+                  (cl-mcp-server.swank-protocol:swank-error (e)
+                    (values nil (search "no reply within"
+                                        (princ-to-string e))))
+                  (error () (values nil nil))))
+          (cond
+            (alive t)
+            (inconclusive :inconclusive)
+            (t (handler-case
+                   (let ((conn (cl-mcp-server.swank-protocol:connect
+                                (target-host target) (target-port target))))
+                     (unwind-protect
+                          (progn (cl-mcp-server.swank-protocol:rex conn "1"
+                                                                   :timeout 5)
+                                 t)
+                       (ignore-errors
+                        (cl-mcp-server.swank-protocol:disconnect conn))))
+                 (error () nil)))))))))
+
 (defun remote-eval (target-name form &key (package "COMMON-LISP-USER")
                                           (tier-override nil))
   "Evaluate FORM on TARGET-NAME, subject to its mode. Returns a plist."
@@ -250,9 +404,12 @@ flood or stall the service before a single byte reaches us."
               (list :ok nil :tier tier :refused t
                     :error (format nil
                                    "Refused: ~(~A~) tier~@[ (~A)~], but ~
-target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
+target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A~
+~@[~%~%If you own this service, remote-arm permits it.~]"
                                    tier reason target-name
-                                   (target-mode target) form)))
+                                   (target-mode target) form
+                                   (member tier '(:redefine :state
+                                                  :lifecycle)))))
              (t
               (handler-case
                   (multiple-value-bind (result output)
@@ -262,14 +419,38 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
                        :package package)
                     (record target-name tier form :ok)
                     (list :ok t :tier tier :result result :output output))
-                (cl-mcp-server.swank-protocol:swank-aborted (e)
-                  (record target-name tier form :remote-error
-                          (princ-to-string e))
-                  (list :ok nil :tier tier
-                        :error (princ-to-string e)
-                        :restarts
-                        (cl-mcp-server.swank-protocol:swank-aborted-restarts
-                         e)))
+                (cl-mcp-server.swank-protocol:swank-error (e)
+                  ;; One clause for the whole SWANK-ERROR family, because
+                  ;; SWANK-ABORTED is a subclass and a form that kills the
+                  ;; image can surface as either.
+                  ;;
+                  ;; Termination is confirmed by PROBING, not inferred from
+                  ;; the form: a form that merely mentions QUIT can fail
+                  ;; before reaching it, and claiming termination there
+                  ;; closes a healthy connection and writes a false
+                  ;; :terminated into the ledger.
+                  (cond
+                    ((and (session-ending-form-p form)
+                          ;; EQ NIL, not just falsy: :INCONCLUSIVE must not
+                          ;; be read as death.
+                          (null (target-responds-p target-name)))
+                     (close-connection target-name)
+                     (record target-name tier form :terminated)
+                     (list :ok t :tier tier
+                           :result (format nil "Target ~A terminated, as ~
+instructed. The connection is closed." target-name)))
+                    ((typep e 'cl-mcp-server.swank-protocol:swank-aborted)
+                     (record target-name tier form :remote-error
+                             (princ-to-string e))
+                     (list :ok nil :tier tier
+                           :error (princ-to-string e)
+                           :restarts
+                           (cl-mcp-server.swank-protocol:swank-aborted-restarts
+                            e)))
+                    (t
+                     (record target-name tier form :error
+                             (princ-to-string e))
+                     (list :ok nil :tier tier :error (princ-to-string e)))))
                 (error (e)
                   (record target-name tier form :error (princ-to-string e))
                   (list :ok nil :tier tier

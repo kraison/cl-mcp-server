@@ -21,12 +21,17 @@ Do Lisp work through the `lisp` MCP tools. Do not shell out to `sbcl`.
 ## Live services
 
 `remote-*` act on a **running service**, where a mistake is not undoable.
-They are read-only: mutating and lifecycle forms are refused and printed for
-you to run. The classifier is textual and cannot see through a macro, so it
-stops accidents, not adversaries — `remote-ledger` is the real audit.
+They are read-only **by default**: mutating and lifecycle forms are refused
+and printed for you to run. The classifier is textual and cannot see through
+a macro, so it stops accidents, not adversaries — `remote-ledger` is the
+real audit.
 
 - what does a value on the service hold? → `remote-inspect` (transcript by
   default, retaining nothing; `registry` adds weak, navigable handles)
+- need to redefine something on a service you own → `remote-arm`, then
+  `remote-disarm` when done. Refused unless the target is allowlisted in
+  `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which
+  live outside the session on purpose. There is no expiry.
 - finishing up → `remote-disconnect` with `cleanup`, which sweeps what we left
 
 See `docs/reference/remote-swank.md`.

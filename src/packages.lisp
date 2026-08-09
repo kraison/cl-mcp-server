@@ -308,6 +308,15 @@
    #:*call-timeout*
    #:*connect-timeout*))
 
+(defpackage #:cl-mcp-server.remote-config
+  (:use #:cl)
+  (:export
+   #:armable-target-p
+   #:armable-targets
+   #:reload-config
+   #:config-error
+   #:config-error-detail))
+
 (defpackage #:cl-mcp-server.remote
   (:use #:cl)
   (:local-nicknames (#:bt #:bordeaux-threads))
@@ -330,7 +339,10 @@
    #:entry-tier
    #:entry-form
    #:entry-outcome
-   #:entry-detail))
+   #:entry-detail
+   #:arm-target
+   #:disarm-target
+   #:target-armed-p))
 
 (defpackage #:cl-mcp-server.remote-inspect
   (:use #:cl)

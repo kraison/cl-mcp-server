@@ -92,7 +92,7 @@ escaping and survives the round trip -- this cost a debug cycle once."
 (test registry-forms-do-mutate
   "Registry mode genuinely mutates; it must not pretend otherwise"
   (is (member (cl-mcp-server.remote::classify-form (setup-form))
-              '(:mutate :lifecycle))))
+              '(:state :lifecycle))))
 
 ;;; ==========================================================================
 ;;; The inspect-registry tier
