@@ -514,17 +514,21 @@ dispatches on the FORM before the condition type."
         while hit do (incf n) (setf pos (1+ hit))
         finally (return n)))
 
+(defun %remote-source ()
+  "Text of src/remote.lisp, resolved through ASDF so the working directory
+does not decide whether a test passes."
+  (with-open-file (in (asdf:system-relative-pathname :cl-mcp-server
+                                                     "src/remote.lisp"))
+    (let ((text (make-string (file-length in))))
+      (subseq text 0 (read-sequence text in)))))
+
 (test remote-eval-has-one-swank-error-clause
   "Two sibling clauses would silently re-introduce the bug: whichever came
 first would shadow the other for the whole family.
 
 Resolves the path through ASDF: a relative pathname would make this pass or
 fail depending on the caller's working directory."
-  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
-                                              "src/remote.lisp"))
-         (src (with-open-file (in path)
-                (let ((text (make-string (file-length in))))
-                  (subseq text 0 (read-sequence text in))))))
+  (let ((src (%remote-source)))
     ;; Counts the clause in REMOTE-EVAL specifically -- target-responds-p
     ;; has its own swank-error clause, which is unrelated.
     (is (= 1 (%count-substring
@@ -571,15 +575,17 @@ termination from the form text closed a healthy connection and wrote a false
 Asserts the guard is present in source: a behavioural test would need a
 service that survives a failing quit-form, which the live checks cover.
 Reverting the guard makes this fail."
-  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
-                                              "src/remote.lisp"))
-         (src (with-open-file (in path)
-                (let ((text (make-string (file-length in))))
-                  (subseq text 0 (read-sequence text in))))))
+  (let ((src (%remote-source)))
     (is (= 1 (%count-substring "(null (target-responds-p target-name))" src))
         "termination must test for NIL, not falsiness: :INCONCLUSIVE is
 not death"))
-  ;; The three-state contract the guard above depends on.
+  ;; The three-state contract the guard above depends on. Pinning only the
+  ;; call site says nothing about the callee: target-responds-p must still
+  ;; be capable of returning :INCONCLUSIVE, or (null ...) is guarding a
+  ;; distinction that no longer exists.
+  (is (= 1 (%count-substring "(inconclusive :inconclusive)"
+                             (%remote-source)))
+      "target-responds-p must still distinguish inconclusive from dead")
   (is-false (cl-mcp-server.remote::target-responds-p "no-such-target"))
   (cl-mcp-server.remote:register-target "dead-probe" "127.0.0.1" 1
                                         :mode :read)
