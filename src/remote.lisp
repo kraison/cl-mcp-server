@@ -253,8 +253,9 @@ deliberately." name name)))
       ((target-armed-p target)
        (values target (format nil "~A is already armed." name)))
       (t
-       (setf (target-pre-arm-mode target) (target-mode target)
-             (target-mode target) :developer)
+       (bt:with-lock-held (*lock*)
+         (setf (target-pre-arm-mode target) (target-mode target)
+               (target-mode target) :developer))
        (record name :arm "" :armed reason)
        (values target
                (format nil "~A is ARMED for development.~%~%Redefinition, ~
@@ -271,8 +272,9 @@ you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))
        (values target (format nil "~A is not armed." name)))
       (t
        (let ((restored (target-pre-arm-mode target)))
-         (setf (target-mode target) restored
-               (target-pre-arm-mode target) nil)
+         (bt:with-lock-held (*lock*)
+           (setf (target-mode target) restored
+                 (target-pre-arm-mode target) nil))
          (record name :disarm "" :disarmed
                  (format nil "restored ~(~A~) mode" restored))
          (values target
@@ -364,7 +366,8 @@ that socket is broken either way, so it cannot distinguish the two cases."
               (list :ok nil :tier tier :refused t
                     :error (format nil
                                    "Refused: ~(~A~) tier~@[ (~A)~], but ~
-target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
+target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A~
+~%~%If you own this service, remote-arm permits it."
                                    tier reason target-name
                                    (target-mode target) form)))
              (t

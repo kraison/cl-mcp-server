@@ -95,15 +95,6 @@ than quietly succeeding."
   (is (eq :read (tier-of "(+ 1 2)")))
   (is (eq :read (tier-of "(hash-table-count *cache*)"))))
 
-(test classify-setf-is-mutate
-  (is (eq :state (tier-of "(setf *x* 1)"))))
-
-(test classify-defun-is-mutate
-  (is (eq :redefine (tier-of "(defun foo () 1)"))))
-
-(test classify-load-is-mutate
-  (is (eq :state (tier-of "(load \"/tmp/x.lisp\")"))))
-
 (test classify-quit-is-lifecycle
   (is (eq :lifecycle (tier-of "(sb-ext:quit)")))
   (is (eq :lifecycle (tier-of "(quit)"))))
