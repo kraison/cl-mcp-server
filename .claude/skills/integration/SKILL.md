@@ -36,7 +36,8 @@ much more.
 | finish with a service | `remote-disconnect` with `cleanup` |
 
 `remote-*` tools act on a **live service**, where a mistake is not undoable.
-They are read-only and refuse mutations, but the classifier is a guardrail
+They are read-only by default and refuse mutations unless the target has
+been armed with `remote-arm`, but the classifier is a guardrail
 against accidents, not a sandbox. See `docs/reference/remote-swank.md`.
 
 ## Quick Start

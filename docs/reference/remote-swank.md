@@ -323,7 +323,10 @@ them.
 
 Everything above is read-only. Mutation is off until a target is **armed**,
 and a target can only be armed if it is named in an allowlist that lives
-outside the session — that is what stops an agent escalating itself.
+outside the session — so the arming tool cannot be talked into arming a
+target you never named. Like the classifier, this stops accidents, not an
+agent writing arbitrary Lisp: `evaluate-lisp` runs in this same image and
+can reach these internals directly. The ledger remains the audit.
 
 ### The allowlist
 

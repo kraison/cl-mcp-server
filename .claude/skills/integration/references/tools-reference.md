@@ -189,7 +189,9 @@ redefinition, state changes and lifecycle forms.
 **Refused unless the target is allowlisted outside the session** — in
 `~/.config/cl-mcp-server/config.sexp` as `(:armable-targets ("name" ...))`,
 or in `CL_MCP_ARMABLE_TARGETS` as a comma-separated list, which replaces the
-file rather than merging. This is what stops a session escalating itself.
+file rather than merging. This stops the arming tool being talked into
+arming a target you never named — it is not a sandbox, since `evaluate-lisp`
+runs in the same image.
 
 **There is no expiry.** The target stays armed until `remote-disarm`, which
 takes `target` and restores the mode it had before arming. `remote-targets`

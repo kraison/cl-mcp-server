@@ -538,3 +538,33 @@ fail depending on the caller's working directory."
         "expected exactly one swank-error handler clause")
     (is (= 0 (%count-substring "swank-protocol:swank-aborted (e)" src))
         "swank-aborted must not have its own sibling clause")))
+
+(test reconnecting-does-not-silently-disarm
+  "Re-registering an armed target used to replace the struct, dropping
+pre-arm-mode. The ledger would then show an :arm with no :disarm while the
+target was in fact unarmed -- audit and reality disagreeing."
+  (with-armable ("rearm")
+    (cl-mcp-server.remote:register-target "rearm" "127.0.0.1" 1 :mode :read)
+    (cl-mcp-server.remote:arm-target "rearm")
+    (cl-mcp-server.remote:register-target "rearm" "127.0.0.1" 1 :mode :read)
+    (let ((tg (cl-mcp-server.remote::find-target "rearm")))
+      (is-true (cl-mcp-server.remote:target-armed-p tg)
+               "reconnect must not drop arming")
+      (is (eq :developer (cl-mcp-server.remote::target-mode tg))))))
+
+(test reconnecting-updates-host-and-port
+  (cl-mcp-server.remote:register-target "moved" "127.0.0.1" 1 :mode :read)
+  (cl-mcp-server.remote:register-target "moved" "127.0.0.1" 4321 :mode :read)
+  (let ((tg (cl-mcp-server.remote::find-target "moved")))
+    (is (= 4321 (cl-mcp-server.remote:target-port tg)))))
+
+(test disarm-after-reconnect-restores-the-registered-mode
+  "The mode passed on reconnect becomes the mode disarm returns to."
+  (with-armable ("rejoin")
+    (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1
+                                          :mode :observe)
+    (cl-mcp-server.remote:arm-target "rejoin")
+    (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1 :mode :read)
+    (cl-mcp-server.remote:disarm-target "rejoin")
+    (is (eq :read (cl-mcp-server.remote::target-mode
+                   (cl-mcp-server.remote::find-target "rejoin"))))))

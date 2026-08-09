@@ -26,11 +26,29 @@
 (defun register-target (name host port &key (mode :observe)
                                             (max-print-length 200))
   "Register a named target. Names, not raw host/port, are what tools accept:
-you cannot typo a port into production."
+you cannot typo a port into production.
+
+Re-registering an existing target UPDATES it rather than replacing it, so a
+reconnect does not silently drop arming. Replacing the struct would leave
+the ledger showing an :arm with no :disarm while the target was in fact
+unarmed -- the audit and reality disagreeing in the one artifact meant to
+settle it."
   (bt:with-lock-held (*lock*)
-    (setf (gethash name *targets*)
-          (make-target :name name :host host :port port :mode mode
-                       :max-print-length max-print-length)))
+    (let ((existing (gethash name *targets*)))
+      (if existing
+          (setf (target-host existing) host
+                (target-port existing) port
+                (target-max-print-length existing) max-print-length
+                ;; An armed target keeps :developer; MODE becomes the mode
+                ;; it returns to on disarm.
+                (target-mode existing) (if (target-pre-arm-mode existing)
+                                           (target-mode existing)
+                                           mode)
+                (target-pre-arm-mode existing)
+                (if (target-pre-arm-mode existing) mode nil))
+          (setf (gethash name *targets*)
+                (make-target :name name :host host :port port :mode mode
+                             :max-print-length max-print-length)))))
   name)
 
 (defun find-target (name)

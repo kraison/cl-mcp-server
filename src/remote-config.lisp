@@ -16,8 +16,12 @@
   (merge-pathnames ".config/cl-mcp-server/config.sexp"
                    (user-homedir-pathname)))
 
-(defparameter *env-override* nil
-  "Value of CL_MCP_ARMABLE_TARGETS, or NIL when unset. Bound in tests.")
+(defparameter *env-override* :unset
+  "Value of CL_MCP_ARMABLE_TARGETS, or :UNSET to consult the real
+environment. NIL and \"\" are real override values meaning 'nothing is
+armable', so they cannot double as 'not overridden' -- with NIL as the
+sentinel a test could not express 'no env var' and would silently inherit
+the developer's own environment.")
 
 (defvar *armable* :unread
   "Cached allowlist, or :UNREAD before the first read.")
@@ -33,14 +37,15 @@
     (nreverse out)))
 
 (defun %read-file (path)
-  "Allowlist from PATH. Signals CONFIG-ERROR if it will not parse."
+  "Allowlist from PATH. Signals CONFIG-ERROR if it will not parse.
+Only the first form is read; a second top-level form is ignored. If target
+definitions ever move into this file, this becomes a read loop."
   (handler-case
       (with-open-file (in path :if-does-not-exist nil)
         (when in
           (let* ((*read-eval* nil)   ; #. would run code at startup
                  (form (read in nil nil)))
             (mapcar #'string (getf form :armable-targets)))))
-    (config-error (e) (error e))
     (error (e)
       (error 'config-error
              :detail (format nil "~A is unreadable (~A)" path (type-of e))))))
@@ -48,8 +53,9 @@
 (defun reload-config ()
   "Re-read the allowlist. The environment REPLACES the file."
   (setf *armable*
-        (let ((env (or *env-override*
-                       (sb-ext:posix-getenv "CL_MCP_ARMABLE_TARGETS"))))
+        (let ((env (if (eq *env-override* :unset)
+                       (sb-ext:posix-getenv "CL_MCP_ARMABLE_TARGETS")
+                       *env-override*)))
           (if env
               (%split-commas env)
               (%read-file *config-path*)))))

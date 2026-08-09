@@ -26,7 +26,7 @@ CL_MCP_ARMABLE_TARGETS; :unset means the variable is absent."
                 (write-string ,file s)))
             (let ((cl-mcp-server.remote-config::*config-path* path)
                   (cl-mcp-server.remote-config::*env-override*
-                    ,(if (eq env :unset) nil env)))
+                    ,(if (eq env :unset) :unset env)))
               (cl-mcp-server.remote-config:reload-config)
               ,@body))
        (ignore-errors (uiop:delete-directory-tree
@@ -68,8 +68,20 @@ nothing: the two are indistinguishable to the user at the moment it matters"
       nil)))
 
 (test read-eval-is-disabled
-  "#. in a config file would be arbitrary code execution at startup"
-  (signals cl-mcp-server.remote-config:config-error
-    (with-config (:file "(:armable-targets (#.(error \"pwned\")))"
-                  :env :unset)
-      nil)))
+  "#. in a config file would be arbitrary code execution at startup.
+
+The payload must SUCCEED if evaluated, not throw. With (error \"pwned\") the
+test passed either way: *read-eval* nil makes the reader signal, and
+*read-eval* t makes the payload itself signal, and both become a
+config-error. A payload that quietly returns a value is the only version
+that can tell the two worlds apart."
+  (handler-case
+      (with-config (:file "(:armable-targets (#.(cl:string 'cl-user::pwned)))"
+                    :env :unset)
+        ;; Reached only if #. was evaluated and produced a usable string,
+        ;; i.e. read-eval executed code from the config file.
+        (is-false (cl-mcp-server.remote-config:armable-target-p "PWNED")
+                  "read-eval executed the payload in the config file"))
+    (cl-mcp-server.remote-config:config-error ()
+      ;; The expected path: the reader refused #. outright.
+      (is-true t))))

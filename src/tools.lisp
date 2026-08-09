@@ -312,10 +312,8 @@ Reachable; remote SBCL ~A.~%~%~A"
                                  (if (cl-mcp-server.remote:target-armed-p
                                       (cl-mcp-server.remote::find-target
                                        name))
-                                     "This target is ARMED: mutation ~
-is permitted."
-                                     "Mutating and lifecycle forms will ~
-be refused."))
+                                     "This target is ARMED: mutation is permitted."
+                                     "Mutating and lifecycle forms will be refused."))
                          nil)
                         (values
                          (format nil "Target ~A registered but NOT reachable:~%  ~A"
@@ -323,7 +321,7 @@ be refused."))
                          t)))))))
 
   (cl-mcp:register-tool server "remote-eval"
-   :description "Evaluate a form on a named remote target. The form is CLASSIFIED before it is sent: forms that read state run, forms that mutate (setf, defun, load) or affect lifecycle (quit, kill-thread, delete-package) are REFUSED and printed for you to run yourself. Print limits are bound in the remote image, so a large structure cannot flood or stall the service. Every call -- including refusals -- is recorded in the ledger."
+   :description "Evaluate a form on a named remote target. The form is CLASSIFIED before it is sent: forms that read state run, while forms that mutate (setf, defun, load) or affect lifecycle (quit, kill-thread, delete-package) are REFUSED and printed for you to run yourself -- unless the target has been armed with remote-arm, which permits them. Print limits are bound in the remote image, so a large structure cannot flood or stall the service. Every call -- including refusals -- is recorded in the ledger."
    :schema '(("type" . "object")
              ("required" . ("target" "code"))
              ("properties" . (("target" . (("type" . "string")
@@ -421,7 +419,7 @@ be refused."))
                       (format s "No open connection to ~A." name))))))
 
   (cl-mcp:register-tool server "remote-arm"
-   :description "Arm a target for development: permits redefinition, state changes and lifecycle forms on a RUNNING service. Refused unless the target is allowlisted in ~/.config/cl-mcp-server/config.sexp or CL_MCP_ARMABLE_TARGETS -- the allowlist lives outside the session so a session cannot escalate itself. There is NO expiry: the target stays armed until remote-disarm. Use only on a service you own and are actively developing."
+   :description "Arm a target for development: permits redefinition, state changes and lifecycle forms on a RUNNING service. Refused unless the target is allowlisted in ~/.config/cl-mcp-server/config.sexp or CL_MCP_ARMABLE_TARGETS -- the allowlist lives outside the session, so this tool cannot be talked into arming a target you never named (it is a guardrail, not a sandbox). There is NO expiry: the target stays armed until remote-disarm. Use only on a service you own and are actively developing."
    :schema '(("type" . "object")
              ("required" . ("target"))
              ("properties" . (("target" . (("type" . "string")
