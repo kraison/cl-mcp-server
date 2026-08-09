@@ -576,8 +576,10 @@ Reverting the guard makes this fail."
          (src (with-open-file (in path)
                 (let ((text (make-string (file-length in))))
                   (subseq text 0 (read-sequence text in))))))
-    (is (>= (%count-substring "(target-responds-p target-name)" src) 1)
-        "termination must be confirmed by probing, not by the form text"))
+    (is (= 1 (%count-substring "(null (target-responds-p target-name))" src))
+        "termination must test for NIL, not falsiness: :INCONCLUSIVE is
+not death"))
+  ;; The three-state contract the guard above depends on.
   (is-false (cl-mcp-server.remote::target-responds-p "no-such-target"))
   (cl-mcp-server.remote:register-target "dead-probe" "127.0.0.1" 1
                                         :mode :read)
@@ -605,12 +607,19 @@ whole suite still green."
     (cl-mcp-server.remote:register-target "movetest" "127.0.0.1" 2
                                           :mode :read)
     (is-false (cached-p "movetest") "a moved target must drop its socket")
+    ;; Host, not just port: the guard has two halves and each needs pinning.
+    (stub "movetest")
+    (cl-mcp-server.remote:register-target "movetest" "127.0.0.2" 2
+                                          :mode :read)
+    (is-false (cached-p "movetest") "a host change must drop the socket too")
     ;; Unmoved: it must survive, or every reconnect churns the connection.
     (stub "movetest")
-    (cl-mcp-server.remote:register-target "movetest" "127.0.0.1" 2
+    (cl-mcp-server.remote:register-target "movetest" "127.0.0.2" 2
                                           :mode :read)
     (is-true (cached-p "movetest")
-             "an unmoved target must keep its socket")))
+             "an unmoved target must keep its socket")
+    ;; Do not leave a half-built stub in the global table for later tests.
+    (remhash "movetest" cl-mcp-server.remote::*connections*)))
 
 (test reconnecting-updates-the-host-too
   "The port-only test would not notice the host copy being dropped."

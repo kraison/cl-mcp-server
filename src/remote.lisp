@@ -366,6 +366,9 @@ would fail and we would report a healthy service as terminated."
                     (progn (cl-mcp-server.swank-protocol:rex existing "1"
                                                              :timeout 5)
                            (values t nil))
+                  ;; An abort came FROM the image, so it is alive.
+                  (cl-mcp-server.swank-protocol:swank-aborted ()
+                    (values t nil))
                   (cl-mcp-server.swank-protocol:swank-error (e)
                     (values nil (search "no reply within"
                                         (princ-to-string e))))
