@@ -35,20 +35,21 @@ unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it."
   (bt:with-lock-held (*lock*)
     (let ((existing (gethash name *targets*)))
-      (if existing
-          (setf (target-host existing) host
-                (target-port existing) port
-                (target-max-print-length existing) max-print-length
-                ;; An armed target keeps :developer; MODE becomes the mode
-                ;; it returns to on disarm.
-                (target-mode existing) (if (target-pre-arm-mode existing)
-                                           (target-mode existing)
-                                           mode)
-                (target-pre-arm-mode existing)
-                (if (target-pre-arm-mode existing) mode nil))
-          (setf (gethash name *targets*)
-                (make-target :name name :host host :port port :mode mode
-                             :max-print-length max-print-length)))))
+      (cond
+        ((null existing)
+         (setf (gethash name *targets*)
+               (make-target :name name :host host :port port :mode mode
+                            :max-print-length max-print-length)))
+        (t
+         (let ((armed (target-armed-p existing)))
+           (setf (target-host existing) host
+                 (target-port existing) port
+                 (target-max-print-length existing) max-print-length)
+           ;; An armed target stays armed, and MODE becomes what disarm
+           ;; restores rather than overwriting :developer.
+           (if armed
+               (setf (target-pre-arm-mode existing) mode)
+               (setf (target-mode existing) mode)))))))
   name)
 
 (defun find-target (name)
