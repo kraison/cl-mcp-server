@@ -327,6 +327,25 @@ flood or stall the service before a single byte reaches us."
           (target-max-print-level target)
           form))
 
+(defun target-responds-p (name)
+  "Can NAME still answer a trivial form on a FRESH connection?
+
+Used to confirm a target actually died rather than trusting the form text.
+Deliberately does not reuse the existing connection: after a lifecycle form
+that socket is broken either way, so it cannot distinguish the two cases."
+  (let ((target (find-target name)))
+    (and target
+         (handler-case
+             (let ((conn (cl-mcp-server.swank-protocol:connect
+                          (target-host target) (target-port target))))
+               (unwind-protect
+                    (progn (cl-mcp-server.swank-protocol:rex conn "1"
+                                                             :timeout 5)
+                           t)
+                 (ignore-errors
+                  (cl-mcp-server.swank-protocol:disconnect conn))))
+           (error () nil)))))
+
 (defun remote-eval (target-name form &key (package "COMMON-LISP-USER")
                                           (tier-override nil))
   "Evaluate FORM on TARGET-NAME, subject to its mode. Returns a plist."
@@ -359,11 +378,16 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A"
                 (cl-mcp-server.swank-protocol:swank-error (e)
                   ;; One clause for the whole SWANK-ERROR family, because
                   ;; SWANK-ABORTED is a subclass and a form that kills the
-                  ;; image can surface as either. Dispatching on the form
-                  ;; first, the condition second, is what makes a quit read
-                  ;; as terminated rather than as a bare remote error.
+                  ;; image can surface as either.
+                  ;;
+                  ;; Termination is confirmed by PROBING, not inferred from
+                  ;; the form: a form that merely mentions QUIT can fail
+                  ;; before reaching it, and claiming termination there
+                  ;; closes a healthy connection and writes a false
+                  ;; :terminated into the ledger.
                   (cond
-                    ((session-ending-form-p form)
+                    ((and (session-ending-form-p form)
+                          (not (target-responds-p target-name)))
                      (close-connection target-name)
                      (record target-name tier form :terminated)
                      (list :ok t :tier tier

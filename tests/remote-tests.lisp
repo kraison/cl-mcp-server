@@ -568,3 +568,15 @@ target was in fact unarmed -- audit and reality disagreeing."
     (cl-mcp-server.remote:disarm-target "rejoin")
     (is (eq :read (cl-mcp-server.remote::target-mode
                    (cl-mcp-server.remote::find-target "rejoin"))))))
+
+(test termination-is-probed-not-inferred-from-the-form
+  "A form that merely MENTIONS quit can fail before reaching it. Inferring
+termination from the form text closed a healthy connection and wrote a false
+:terminated into the ledger -- reproduced live before this was fixed.
+
+Nothing listens on port 1, so the probe must report the target as dead;
+the point here is that the probe is consulted at all."
+  (is-false (cl-mcp-server.remote::target-responds-p "no-such-target"))
+  (cl-mcp-server.remote:register-target "dead-probe" "127.0.0.1" 1
+                                        :mode :read)
+  (is-false (cl-mcp-server.remote::target-responds-p "dead-probe")))
