@@ -33,7 +33,7 @@ reconnect does not silently drop arming. Replacing the struct would leave
 the ledger showing an :arm with no :disarm while the target was in fact
 unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it."
-  (let ((moved nil))
+  (let ((stale nil))
     (bt:with-lock-held (*lock*)
       (let ((existing (gethash name *targets*)))
         (cond
@@ -42,21 +42,26 @@ settle it."
                  (make-target :name name :host host :port port :mode mode
                               :max-print-length max-print-length)))
           (t
-           (let ((armed (target-armed-p existing)))
-             (setf moved (or (not (equal (target-host existing) host))
-                             (/= (target-port existing) port))
-                   (target-host existing) host
+           (let ((armed (target-armed-p existing))
+                 (moved (or (not (equal (target-host existing) host))
+                            (not (eql (target-port existing) port)))))
+             (setf (target-host existing) host
                    (target-port existing) port
                    (target-max-print-length existing) max-print-length)
+             ;; Unhook the stale socket INSIDE the lock: leaving it visible
+             ;; even briefly lets a concurrent call send to the old image,
+             ;; which is the failure this guard exists to prevent.
+             (when moved
+               (setf stale (gethash name *connections*))
+               (remhash name *connections*))
              ;; An armed target stays armed, and MODE becomes what disarm
              ;; restores rather than overwriting :developer.
              (if armed
                  (setf (target-pre-arm-mode existing) mode)
                  (setf (target-mode existing) mode)))))))
-    ;; Outside the lock: close-connection takes the same non-recursive lock.
-    ;; A cached socket still points at the OLD host/port, so leaving it would
-    ;; send an armed target's redefinitions to the previous image.
-    (when moved (close-connection name)))
+    ;; I/O outside the lock.
+    (when stale
+      (ignore-errors (cl-mcp-server.swank-protocol:disconnect stale))))
   name)
 
 (defun find-target (name)
@@ -338,34 +343,46 @@ flood or stall the service before a single byte reaches us."
           form))
 
 (defun target-responds-p (name)
-  "Can NAME still answer a trivial form?
+  "Can NAME still answer a trivial form? Returns T, NIL, or :INCONCLUSIVE.
 
 Used to confirm a target actually died rather than trusting the form text.
 
 Tries the EXISTING connection first. An aborted form unwinds via
 throw-to-toplevel and leaves that connection usable, so a live answer here
-is decisive and costs no new socket. Only if that fails do we try a fresh
-one -- and a target whose SWANK was started without :dont-close will refuse
-it, so a fresh-socket failure alone must never be read as death."
+is decisive and costs no new socket.
+
+A TIMEOUT on that probe is :INCONCLUSIVE, never NIL: an alive-but-stalled
+image (long GC, blocked lock) would otherwise look dead, and a SWANK server
+started without :dont-close refuses the fallback socket, so both probes
+would fail and we would report a healthy service as terminated."
   (let ((target (find-target name)))
     (when target
-      (or (handler-case
-              (let ((conn (gethash name *connections*)))
-                (and conn
-                     (progn (cl-mcp-server.swank-protocol:rex conn "1"
-                                                              :timeout 5)
-                            t)))
-            (error () nil))
-          (handler-case
-              (let ((conn (cl-mcp-server.swank-protocol:connect
-                           (target-host target) (target-port target))))
-                (unwind-protect
-                     (progn (cl-mcp-server.swank-protocol:rex conn "1"
-                                                              :timeout 5)
-                            t)
-                  (ignore-errors
-                   (cl-mcp-server.swank-protocol:disconnect conn))))
-            (error () nil))))))
+      (let ((existing (bt:with-lock-held (*lock*)
+                        (gethash name *connections*))))
+        (multiple-value-bind (alive inconclusive)
+            (if (null existing)
+                (values nil nil)
+                (handler-case
+                    (progn (cl-mcp-server.swank-protocol:rex existing "1"
+                                                             :timeout 5)
+                           (values t nil))
+                  (cl-mcp-server.swank-protocol:swank-error (e)
+                    (values nil (search "no reply within"
+                                        (princ-to-string e))))
+                  (error () (values nil nil))))
+          (cond
+            (alive t)
+            (inconclusive :inconclusive)
+            (t (handler-case
+                   (let ((conn (cl-mcp-server.swank-protocol:connect
+                                (target-host target) (target-port target))))
+                     (unwind-protect
+                          (progn (cl-mcp-server.swank-protocol:rex conn "1"
+                                                                   :timeout 5)
+                                 t)
+                       (ignore-errors
+                        (cl-mcp-server.swank-protocol:disconnect conn))))
+                 (error () nil)))))))))
 
 (defun remote-eval (target-name form &key (package "COMMON-LISP-USER")
                                           (tier-override nil))
@@ -411,7 +428,9 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A~
                   ;; :terminated into the ledger.
                   (cond
                     ((and (session-ending-form-p form)
-                          (not (target-responds-p target-name)))
+                          ;; EQ NIL, not just falsy: :INCONCLUSIVE must not
+                          ;; be read as death.
+                          (null (target-responds-p target-name)))
                      (close-connection target-name)
                      (record target-name tier form :terminated)
                      (list :ok t :tier tier

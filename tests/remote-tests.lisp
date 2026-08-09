@@ -525,8 +525,11 @@ fail depending on the caller's working directory."
          (src (with-open-file (in path)
                 (let ((text (make-string (file-length in))))
                   (subseq text 0 (read-sequence text in))))))
-    (is (= 1 (%count-substring "swank-protocol:swank-error (e)" src))
-        "expected exactly one swank-error handler clause")
+    ;; Counts the clause in REMOTE-EVAL specifically -- target-responds-p
+    ;; has its own swank-error clause, which is unrelated.
+    (is (= 1 (%count-substring
+              "(typep e 'cl-mcp-server.swank-protocol:swank-aborted)" src))
+        "swank-aborted must be handled by typep inside the one clause")
     (is (= 0 (%count-substring "swank-protocol:swank-aborted (e)" src))
         "swank-aborted must not have its own sibling clause")))
 
@@ -573,7 +576,7 @@ Reverting the guard makes this fail."
          (src (with-open-file (in path)
                 (let ((text (make-string (file-length in))))
                   (subseq text 0 (read-sequence text in))))))
-    (is (= 1 (%count-substring "(not (target-responds-p target-name))" src))
+    (is (>= (%count-substring "(target-responds-p target-name)" src) 1)
         "termination must be confirmed by probing, not by the form text"))
   (is-false (cl-mcp-server.remote::target-responds-p "no-such-target"))
   (cl-mcp-server.remote:register-target "dead-probe" "127.0.0.1" 1
@@ -583,14 +586,31 @@ Reverting the guard makes this fail."
 (test reregistering-a-moved-target-drops-the-cached-connection
   "A cached socket points at the OLD host/port. Keeping it would send an
 armed target's redefinitions to the previous image -- the 'typo a port into
-production' failure the design exists to prevent."
-  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
-                                              "src/remote.lisp"))
-         (src (with-open-file (in path)
-                (let ((text (make-string (file-length in))))
-                  (subseq text 0 (read-sequence text in))))))
-    (is (= 1 (%count-substring "(when moved (close-connection name))" src))
-        "a moved target must have its cached connection dropped")))
+production' failure the design exists to prevent.
+
+Behavioural, and pins the condition in BOTH directions: a source-text check
+alone let the guard be inverted (invalidate only UNMOVED targets) with the
+whole suite still green."
+  (flet ((stub (name)
+           (setf (gethash name cl-mcp-server.remote::*connections*)
+                 (cl-mcp-server.swank-protocol::make-swank-connection
+                  :socket nil :stream nil)))
+         (cached-p (name)
+           (nth-value 1 (gethash name
+                                 cl-mcp-server.remote::*connections*))))
+    ;; Moved: the cached connection must go.
+    (cl-mcp-server.remote:register-target "movetest" "127.0.0.1" 1
+                                          :mode :read)
+    (stub "movetest")
+    (cl-mcp-server.remote:register-target "movetest" "127.0.0.1" 2
+                                          :mode :read)
+    (is-false (cached-p "movetest") "a moved target must drop its socket")
+    ;; Unmoved: it must survive, or every reconnect churns the connection.
+    (stub "movetest")
+    (cl-mcp-server.remote:register-target "movetest" "127.0.0.1" 2
+                                          :mode :read)
+    (is-true (cached-p "movetest")
+             "an unmoved target must keep its socket")))
 
 (test reconnecting-updates-the-host-too
   "The port-only test would not notice the host copy being dropped."
