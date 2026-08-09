@@ -565,9 +565,37 @@ target was in fact unarmed -- audit and reality disagreeing."
 termination from the form text closed a healthy connection and wrote a false
 :terminated into the ledger -- reproduced live before this was fixed.
 
-Nothing listens on port 1, so the probe must report the target as dead;
-the point here is that the probe is consulted at all."
+Asserts the guard is present in source: a behavioural test would need a
+service that survives a failing quit-form, which the live checks cover.
+Reverting the guard makes this fail."
+  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
+                                              "src/remote.lisp"))
+         (src (with-open-file (in path)
+                (let ((text (make-string (file-length in))))
+                  (subseq text 0 (read-sequence text in))))))
+    (is (= 1 (%count-substring "(not (target-responds-p target-name))" src))
+        "termination must be confirmed by probing, not by the form text"))
   (is-false (cl-mcp-server.remote::target-responds-p "no-such-target"))
   (cl-mcp-server.remote:register-target "dead-probe" "127.0.0.1" 1
                                         :mode :read)
   (is-false (cl-mcp-server.remote::target-responds-p "dead-probe")))
+
+(test reregistering-a-moved-target-drops-the-cached-connection
+  "A cached socket points at the OLD host/port. Keeping it would send an
+armed target's redefinitions to the previous image -- the 'typo a port into
+production' failure the design exists to prevent."
+  (let* ((path (asdf:system-relative-pathname :cl-mcp-server
+                                              "src/remote.lisp"))
+         (src (with-open-file (in path)
+                (let ((text (make-string (file-length in))))
+                  (subseq text 0 (read-sequence text in))))))
+    (is (= 1 (%count-substring "(when moved (close-connection name))" src))
+        "a moved target must have its cached connection dropped")))
+
+(test reconnecting-updates-the-host-too
+  "The port-only test would not notice the host copy being dropped."
+  (cl-mcp-server.remote:register-target "hostmove" "127.0.0.1" 1 :mode :read)
+  (cl-mcp-server.remote:register-target "hostmove" "127.0.0.2" 1 :mode :read)
+  (is (string= "127.0.0.2"
+               (cl-mcp-server.remote:target-host
+                (cl-mcp-server.remote::find-target "hostmove")))))

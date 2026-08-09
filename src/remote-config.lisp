@@ -18,10 +18,10 @@
 
 (defparameter *env-override* :unset
   "Value of CL_MCP_ARMABLE_TARGETS, or :UNSET to consult the real
-environment. NIL and \"\" are real override values meaning 'nothing is
-armable', so they cannot double as 'not overridden' -- with NIL as the
-sentinel a test could not express 'no env var' and would silently inherit
-the developer's own environment.")
+environment. Tests bind NIL to mean 'no env var, read the file': NIL cannot
+mean 'not overridden' or a test could not express that case and would
+silently inherit the developer's own environment. \"\" is a real override
+meaning 'nothing is armable'.")
 
 (defvar *armable* :unread
   "Cached allowlist, or :UNREAD before the first read.")

@@ -33,23 +33,30 @@ reconnect does not silently drop arming. Replacing the struct would leave
 the ledger showing an :arm with no :disarm while the target was in fact
 unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it."
-  (bt:with-lock-held (*lock*)
-    (let ((existing (gethash name *targets*)))
-      (cond
-        ((null existing)
-         (setf (gethash name *targets*)
-               (make-target :name name :host host :port port :mode mode
-                            :max-print-length max-print-length)))
-        (t
-         (let ((armed (target-armed-p existing)))
-           (setf (target-host existing) host
-                 (target-port existing) port
-                 (target-max-print-length existing) max-print-length)
-           ;; An armed target stays armed, and MODE becomes what disarm
-           ;; restores rather than overwriting :developer.
-           (if armed
-               (setf (target-pre-arm-mode existing) mode)
-               (setf (target-mode existing) mode)))))))
+  (let ((moved nil))
+    (bt:with-lock-held (*lock*)
+      (let ((existing (gethash name *targets*)))
+        (cond
+          ((null existing)
+           (setf (gethash name *targets*)
+                 (make-target :name name :host host :port port :mode mode
+                              :max-print-length max-print-length)))
+          (t
+           (let ((armed (target-armed-p existing)))
+             (setf moved (or (not (equal (target-host existing) host))
+                             (/= (target-port existing) port))
+                   (target-host existing) host
+                   (target-port existing) port
+                   (target-max-print-length existing) max-print-length)
+             ;; An armed target stays armed, and MODE becomes what disarm
+             ;; restores rather than overwriting :developer.
+             (if armed
+                 (setf (target-pre-arm-mode existing) mode)
+                 (setf (target-mode existing) mode)))))))
+    ;; Outside the lock: close-connection takes the same non-recursive lock.
+    ;; A cached socket still points at the OLD host/port, so leaving it would
+    ;; send an armed target's redefinitions to the previous image.
+    (when moved (close-connection name)))
   name)
 
 (defun find-target (name)
@@ -331,23 +338,34 @@ flood or stall the service before a single byte reaches us."
           form))
 
 (defun target-responds-p (name)
-  "Can NAME still answer a trivial form on a FRESH connection?
+  "Can NAME still answer a trivial form?
 
 Used to confirm a target actually died rather than trusting the form text.
-Deliberately does not reuse the existing connection: after a lifecycle form
-that socket is broken either way, so it cannot distinguish the two cases."
+
+Tries the EXISTING connection first. An aborted form unwinds via
+throw-to-toplevel and leaves that connection usable, so a live answer here
+is decisive and costs no new socket. Only if that fails do we try a fresh
+one -- and a target whose SWANK was started without :dont-close will refuse
+it, so a fresh-socket failure alone must never be read as death."
   (let ((target (find-target name)))
-    (and target
-         (handler-case
-             (let ((conn (cl-mcp-server.swank-protocol:connect
-                          (target-host target) (target-port target))))
-               (unwind-protect
-                    (progn (cl-mcp-server.swank-protocol:rex conn "1"
-                                                             :timeout 5)
-                           t)
-                 (ignore-errors
-                  (cl-mcp-server.swank-protocol:disconnect conn))))
-           (error () nil)))))
+    (when target
+      (or (handler-case
+              (let ((conn (gethash name *connections*)))
+                (and conn
+                     (progn (cl-mcp-server.swank-protocol:rex conn "1"
+                                                              :timeout 5)
+                            t)))
+            (error () nil))
+          (handler-case
+              (let ((conn (cl-mcp-server.swank-protocol:connect
+                           (target-host target) (target-port target))))
+                (unwind-protect
+                     (progn (cl-mcp-server.swank-protocol:rex conn "1"
+                                                              :timeout 5)
+                            t)
+                  (ignore-errors
+                   (cl-mcp-server.swank-protocol:disconnect conn))))
+            (error () nil))))))
 
 (defun remote-eval (target-name form &key (package "COMMON-LISP-USER")
                                           (tier-override nil))
@@ -367,9 +385,11 @@ that socket is broken either way, so it cannot distinguish the two cases."
                     :error (format nil
                                    "Refused: ~(~A~) tier~@[ (~A)~], but ~
 target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A~
-~%~%If you own this service, remote-arm permits it."
+~@[~%~%If you own this service, remote-arm permits it.~]"
                                    tier reason target-name
-                                   (target-mode target) form)))
+                                   (target-mode target) form
+                                   (member tier '(:redefine :state
+                                                  :lifecycle)))))
              (t
               (handler-case
                   (multiple-value-bind (result output)

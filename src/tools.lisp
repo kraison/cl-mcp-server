@@ -3,6 +3,15 @@
 
 (in-package #:cl-mcp-server.tools)
 
+;;; Bound rather than inlined: as literals these exceed 80 columns, and the
+;;; ~ line-continuation that would fix that is not interpreted inside a
+;;; string passed as a ~A argument -- it printed a literal tilde once.
+;;; defparameter, not defconstant: string constants are not EQL on reload.
+(defparameter *armed-note*
+  "This target is ARMED: mutation is permitted.")
+(defparameter *read-only-note*
+  "Mutating and lifecycle forms will be refused.")
+
 ;;; ==========================================================================
 ;;; Tool Definitions
 ;;; ==========================================================================
@@ -312,8 +321,8 @@ Reachable; remote SBCL ~A.~%~%~A"
                                  (if (cl-mcp-server.remote:target-armed-p
                                       (cl-mcp-server.remote::find-target
                                        name))
-                                     "This target is ARMED: mutation is permitted."
-                                     "Mutating and lifecycle forms will be refused."))
+                                     *armed-note*
+                                     *read-only-note*))
                          nil)
                         (values
                          (format nil "Target ~A registered but NOT reachable:~%  ~A"

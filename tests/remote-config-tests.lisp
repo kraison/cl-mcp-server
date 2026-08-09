@@ -26,7 +26,7 @@ CL_MCP_ARMABLE_TARGETS; :unset means the variable is absent."
                 (write-string ,file s)))
             (let ((cl-mcp-server.remote-config::*config-path* path)
                   (cl-mcp-server.remote-config::*env-override*
-                    ,(if (eq env :unset) :unset env)))
+                    ,(if (eq env :unset) nil env)))
               (cl-mcp-server.remote-config:reload-config)
               ,@body))
        (ignore-errors (uiop:delete-directory-tree
