@@ -1,7 +1,7 @@
 # Mutate Mode — Design
 
 **Date:** 2026-08-07
-**Status:** Approved, not yet implemented
+**Status:** Implemented and merged (76c99d1). One deviation, noted below.
 **Affects:** `src/remote.lisp`, `src/tools.lisp`, new `src/remote-config.lisp`
 
 ## Problem
@@ -116,8 +116,7 @@ remains the audit.
 
 Two layers, file first, environment second.
 
-**Config file.** Default `~/.config/cl-mcp-server/config.sexp`, overridden
-by `CL_MCP_CONFIG`:
+**Config file.** `~/.config/cl-mcp-server/config.sexp`:
 
 ```lisp
 (:armable-targets ("scratch" "my-dev-image"))
@@ -207,3 +206,23 @@ is why `:developer` is for services you own.
 **Success is indistinguishable from disaster.** `(setf *rate-limit* 1000)`
 returns `1000` whether or not that was the intended value. Nothing in this
 design detects a well-formed mistake.
+
+---
+
+## Deviations from this design, as built
+
+**`CL_MCP_CONFIG` was dropped.** This design specified an environment
+variable overriding the config file's *path*. It was never implemented:
+`CL_MCP_ARMABLE_TARGETS` overrides the allowlist's *contents* directly,
+which covers the practical need (CI, a one-off session, disabling arming
+with `""`) without a second variable. A path override with no user is
+speculative infrastructure.
+
+Implemented behaviour, in `src/remote-config.lisp`:
+
+- The config file path is `~/.config/cl-mcp-server/config.sexp`, fixed.
+- `CL_MCP_ARMABLE_TARGETS` replaces the file's list entirely when set.
+
+**Everything else landed as designed.** Four review rounds after the six
+implementation tasks; see `docs/reference/remote-swank.md` for the built
+behaviour, which is the document to trust when the two disagree.
