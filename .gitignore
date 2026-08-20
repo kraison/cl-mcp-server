@@ -1,0 +1,25 @@
+# macOS metadata. These appear when the tree is touched over a share from a
+# Mac; 49 of them accumulated before this file existed.
+._*
+.DS_Store
+
+# Compiled Lisp
+*.fasl
+*.fas
+*.lib
+*.dfsl
+*.ufsl
+*.sbcl-fasl
+
+# ASDF / implementation build output
+.cache/
+system-index.txt
+
+# Editor leftovers
+*~
+\#*\#
+.\#*
+
+# Superpowers session state; the durable record is the plan and spec under
+# docs/superpowers/.
+.superpowers/
