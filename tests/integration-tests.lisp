@@ -39,10 +39,21 @@
          (session (cl-mcp-server.session:make-session))
          (input (make-string-input-stream
                  (format nil "~{~a~%~}"
-                         '("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}"
-                           "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}"
-                           "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}"
-                           "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"evaluate-lisp\",\"arguments\":{\"code\":\"(+ 1 2)\"}}}"))))
+                         (list
+                          (concatenate 'string
+                           "{\"jsonrpc\":\"2.0\",\"id\":1,"
+                           "\"method\":\"initialize\",\"params\":{}}")
+                          (concatenate 'string
+                           "{\"jsonrpc\":\"2.0\","
+                           "\"method\":\"notifications/initialized\"}")
+                          (concatenate 'string
+                           "{\"jsonrpc\":\"2.0\",\"id\":2,"
+                           "\"method\":\"tools/list\",\"params\":{}}")
+                          (concatenate 'string
+                           "{\"jsonrpc\":\"2.0\",\"id\":3,"
+                           "\"method\":\"tools/call\","
+                           "\"params\":{\"name\":\"evaluate-lisp\","
+                           "\"arguments\":{\"code\":\"(+ 1 2)\"}}}")))))
          (output (make-string-output-stream)))
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
@@ -71,12 +82,15 @@
   (let* ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.3.0"))
          (session (cl-mcp-server.session:make-session))
          (input (make-string-input-stream
-                 (format nil "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}~%")))
+                 (format nil
+                  "{\"jsonrpc\":\"2.0\",\"id\":1,~
+                   \"method\":\"initialize\",\"params\":{}}~%")))
          (output (make-string-output-stream)))
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
       (cl-mcp:run-server server :input input :output output))
-    (let* ((json-str (string-trim '(#\Newline) (get-output-stream-string output)))
+    (let* ((json-str (string-trim '(#\Newline) (get-output-stream-string
+                                                output)))
            (parsed (yason:parse json-str :object-as :alist)))
       (is (string= "2.0" (cdr (assoc "jsonrpc" parsed :test #'string=))))
       (is (= 1 (cdr (assoc "id" parsed :test #'string=))))
@@ -90,12 +104,15 @@
   (let* ((server (cl-mcp:make-server :name "test" :version "0.1.0"))
          (session (cl-mcp-server.session:make-session))
          (input (make-string-input-stream
-                 (format nil "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"unknown/method\",\"params\":{}}~%")))
+                 (format nil
+                  "{\"jsonrpc\":\"2.0\",\"id\":1,~
+                   \"method\":\"unknown/method\",\"params\":{}}~%")))
          (output (make-string-output-stream)))
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
       (cl-mcp:run-server server :input input :output output))
-    (let* ((json-str (string-trim '(#\Newline) (get-output-stream-string output)))
+    (let* ((json-str (string-trim '(#\Newline) (get-output-stream-string
+                                                output)))
            (parsed (yason:parse json-str :object-as :alist)))
       (is (= 1 (cdr (assoc "id" parsed :test #'string=))))
       (let ((err (cdr (assoc "error" parsed :test #'string=))))
@@ -107,7 +124,9 @@
   (let* ((server (cl-mcp:make-server :name "test" :version "0.1.0"))
          (session (cl-mcp-server.session:make-session))
          (input (make-string-input-stream
-                 (format nil "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}~%")))
+                 (format nil
+                  "{\"jsonrpc\":\"2.0\",~
+                   \"method\":\"notifications/initialized\"}~%")))
          (output (make-string-output-stream)))
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)

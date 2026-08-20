@@ -25,7 +25,8 @@
 (test normalize-dependency-version
   "normalize-dependency handles version specifications"
   (is (string= "foo"
-               (cl-mcp-server.asdf-tools:normalize-dependency '(:version "foo" "1.0")))))
+               (cl-mcp-server.asdf-tools:normalize-dependency '(:version "foo"
+                                                                "1.0")))))
 
 (test normalize-dependency-feature
   "normalize-dependency handles feature expressions"
@@ -50,7 +51,8 @@
   (let* ((info (cl-mcp-server.asdf-tools:introspect-system "cl-mcp-server"))
          (components (getf info :components)))
     (is (not (null components)))
-    (is (find "tools" components :key (lambda (c) (getf c :name)) :test #'string=))))
+    (is (find "tools" components :key (lambda (c) (getf c :name)) :test
+         #'string=))))
 
 (test introspect-system-not-found
   "introspect-system signals error for nonexistent system"
@@ -70,7 +72,8 @@
 
 (test introspect-system-dependencies-direct
   "introspect-system-dependencies returns direct dependencies"
-  (let ((info (cl-mcp-server.asdf-tools:introspect-system-dependencies "cl-mcp-server")))
+  (let ((info (cl-mcp-server.asdf-tools:introspect-system-dependencies
+               "cl-mcp-server")))
     (is (string= "cl-mcp-server" (getf info :system)))
     (is (not (null (getf info :direct))))
     (is (member "cl-mcp" (getf info :direct) :test #'string=))))
@@ -86,7 +89,8 @@
 
 (test format-system-dependencies-output
   "format-system-dependencies produces readable output"
-  (let* ((info (cl-mcp-server.asdf-tools:introspect-system-dependencies "cl-mcp-server"))
+  (let* ((info (cl-mcp-server.asdf-tools:introspect-system-dependencies
+                "cl-mcp-server"))
          (formatted (cl-mcp-server.asdf-tools:format-system-dependencies info)))
     (is (search "cl-mcp-server" formatted))
     (is (search "Direct" formatted))))
@@ -125,7 +129,8 @@
 
 (test introspect-find-system-file-found
   "introspect-find-system-file finds existing systems"
-  (let ((result (cl-mcp-server.asdf-tools:introspect-find-system-file "cl-mcp-server")))
+  (let ((result (cl-mcp-server.asdf-tools:introspect-find-system-file
+                 "cl-mcp-server")))
     (is (getf result :found))
     (is (string= "cl-mcp-server" (getf result :name)))
     (is (search ".asd" (getf result :pathname)))))
@@ -176,4 +181,5 @@
          (components (cl-mcp-server.asdf-tools:collect-components sys)))
     (is (not (null components)))
     ;; Should find nested file components
-    (is (find "tools" components :key (lambda (c) (getf c :name)) :test #'string=))))
+    (is (find "tools" components :key (lambda (c) (getf c :name)) :test
+         #'string=))))

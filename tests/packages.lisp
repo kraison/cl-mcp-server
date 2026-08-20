@@ -32,5 +32,6 @@ Returns (values server session)."
 (defun call-test-tool (server name args)
   "Call a tool on SERVER and return the text content as a string.
 Extracts text from normalized content blocks."
-  (let ((result (cl-mcp.tools:call-tool (test-server-registry server) name args)))
+  (let ((result (cl-mcp.tools:call-tool (test-server-registry server) name
+                 args)))
     (cdr (assoc "text" (first result) :test #'string=))))

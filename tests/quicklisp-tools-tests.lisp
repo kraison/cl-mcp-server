@@ -40,7 +40,8 @@
   "Byte counts render in a sensible unit"
   (is (search "B" (cl-mcp-server.quicklisp-tools:human-bytes 512)))
   (is (search "KB" (cl-mcp-server.quicklisp-tools:human-bytes 2048)))
-  (is (search "MB" (cl-mcp-server.quicklisp-tools:human-bytes (* 5 1024 1024)))))
+  (is (search "MB" (cl-mcp-server.quicklisp-tools:human-bytes (* 5 1024
+                                                               1024)))))
 
 (test human-bytes-handles-nil
   "An unknown size does not crash the formatter"
@@ -53,7 +54,8 @@
 (test collect-dependencies-includes-root
   "The root system appears in its own closure"
   (when-ql
-    (let ((names (cl-mcp-server.quicklisp-tools:collect-dependencies "cl-ppcre")))
+    (let ((names (cl-mcp-server.quicklisp-tools:collect-dependencies
+                  "cl-ppcre")))
       (is-true (member "cl-ppcre" names :test #'string-equal)))))
 
 (test collect-dependencies-is-transitive
@@ -95,7 +97,8 @@
 (test dry-run-unknown-system
   "An unknown system is a clean miss, not an error"
   (when-ql
-    (let ((info (cl-mcp-server.quicklisp-tools:ql-dry-run "no-such-system-xyzzy")))
+    (let ((info (cl-mcp-server.quicklisp-tools:ql-dry-run
+                 "no-such-system-xyzzy")))
       (is-false (getf info :found-p)))))
 
 (test dry-run-accounting-is-consistent
@@ -157,7 +160,8 @@
   "Direct requirements are listed"
   (when-ql
     (let ((info (cl-mcp-server.quicklisp-tools:ql-system-info "drakma")))
-      (is-true (member "cl-ppcre" (getf info :requires) :test #'string-equal)))))
+      (is-true (member "cl-ppcre" (getf info :requires) :test
+                #'string-equal)))))
 
 (test system-info-requires-is-sorted
   "Requirements come back in a stable order"
@@ -221,7 +225,8 @@
 (test search-respects-limit
   "The limit caps the number of entries returned"
   (when-ql
-    (let ((result (cl-mcp-server.quicklisp-tools:ql-search-systems "cl" :limit 3)))
+    (let ((result (cl-mcp-server.quicklisp-tools:ql-search-systems "cl" :limit
+                   3)))
       (is (<= (length (getf result :entries)) 3)))))
 
 (test search-no-matches-is-error
@@ -229,7 +234,8 @@
   (when-ql
     (multiple-value-bind (text error-p)
         (cl-mcp-server.quicklisp-tools:format-ql-search-results
-         (cl-mcp-server.quicklisp-tools:ql-search-systems "zzzz-no-such-thing-zzzz"))
+         (cl-mcp-server.quicklisp-tools:ql-search-systems
+          "zzzz-no-such-thing-zzzz"))
       (declare (ignore text))
       (is-true error-p))))
 
@@ -256,7 +262,8 @@
   (when-ql
     (multiple-value-bind (text error-p)
         (cl-mcp-server.quicklisp-tools:format-ql-who-depends-on
-         (cl-mcp-server.quicklisp-tools:ql-who-depends-on "no-such-system-xyzzy"))
+         (cl-mcp-server.quicklisp-tools:ql-who-depends-on
+          "no-such-system-xyzzy"))
       (is-false error-p)
       (is (search "Nothing in the dist" text)))))
 
@@ -274,7 +281,8 @@
 (test dist-status-counts-are-plausible
   "Installed releases never exceed available systems"
   (when-ql
-    (let ((d (first (getf (cl-mcp-server.quicklisp-tools:ql-dist-status) :dists))))
+    (let ((d (first (getf (cl-mcp-server.quicklisp-tools:ql-dist-status)
+                     :dists))))
       (is (<= (getf d :installed-releases) (getf d :provided-systems))))))
 
 (test format-dist-status-is-not-error
@@ -297,7 +305,8 @@
     (dolist (name '("quicklisp-dry-run" "quicklisp-system-info"
                     "quicklisp-search" "quicklisp-who-depends-on"
                     "quicklisp-dist-status"))
-      (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) name)))
+      (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                      name)))
           "tool ~A should be registered" name))))
 
 (test quicklisp-search-tool-takes-term
@@ -333,4 +342,5 @@
   (when-ql
     (multiple-value-bind (server session) (make-test-server)
       (declare (ignore session))
-      (is (search "Quicklisp" (call-test-tool server "quicklisp-dist-status" nil))))))
+      (is (search "Quicklisp" (call-test-tool server "quicklisp-dist-status"
+                               nil))))))

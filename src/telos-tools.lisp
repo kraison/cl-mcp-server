@@ -24,10 +24,10 @@
 ;;;   (:status :error      :detail ...)            telos is loaded and broke
 ;;;   (:status :not-found  :name ... :feature-count N :suggestions (...))
 ;;;   (:status :ambiguous  :name ... :candidates (...))
-;;;   (:status :ok         ...payload...)          payload may legitimately be empty
+;;;   (:status :ok         ...payload...)     payload may be empty
 ;;;
 ;;; :ERROR earns its place: if a telos call that signals is reported as an empty
-;;; result, the tool ends up asserting things like "0 features are registered" --
+;;; result, the tool asserts things like "0 features are registered" --
 ;;; a fabricated fact, and the same misleading message in new clothes.
 
 (in-package #:cl-mcp-server.telos-tools)
@@ -167,12 +167,14 @@ an agent misremembers a name (too short, or too long). Names are returned
 package-qualified, because a suggestion is only actionable if it is unambiguous.
 Needles under two characters match everything, so they suggest nothing."
   (let ((needle (string-downcase
-                 (string-trim '(#\Space #\Tab) (string (name-designator name))))))
+                 (string-trim '(#\Space #\Tab) (string (name-designator
+                                                        name))))))
     (if (< (length needle) 2)
         '()
         (let ((hits (remove-duplicates
                      (loop for candidate in candidates
-                           for candidate-name = (string-downcase (symbol-name candidate))
+                           for candidate-name = (string-downcase (symbol-name
+                                                                  candidate))
                            when (or (search needle candidate-name)
                                     (search candidate-name needle))
                              collect (qualified-name candidate))
@@ -197,13 +199,15 @@ count, so a swallowed failure here becomes a fabricated fact in the message."
 (defun resolve-feature (name)
   "Resolve feature NAME against telos's registry.
 Returns a plist: (:status :unavailable), (:status :error ...),
-(:status :not-found ...), (:status :ambiguous ...), or (:status :ok :feature SYM)."
+(:status :not-found ...), (:status :ambiguous ...), or
+(:status :ok :feature SYM)."
   (if (not (telos-available-p))
       (list :status :unavailable)
       (multiple-value-bind (candidates failure) (all-feature-names)
         (or failure
             (let ((name (name-designator name)))
-              (multiple-value-bind (key extras) (resolve-feature-name name candidates)
+              (multiple-value-bind (key extras) (resolve-feature-name name
+                                                 candidates)
                 (cond
                   ((null key)
                    (list :status :not-found
@@ -213,7 +217,8 @@ Returns a plist: (:status :unavailable), (:status :error ...),
                   (extras
                    (list :status :ambiguous
                          :name name
-                         :candidates (mapcar #'qualified-name (cons key extras))))
+                         :candidates (mapcar #'qualified-name (cons key
+                                                               extras))))
                   (t
                    (list :status :ok :feature key)))))))))
 
@@ -222,7 +227,7 @@ Returns a plist: (:status :unavailable), (:status :error ...),
 ;;; ==========================================================================
 
 (defun telos-known-symbols ()
-  "Collect every symbol telos has attached intent to, by scanning its registries.
+  "Every symbol telos has attached intent to, by scanning its registries.
 
 Their key shapes differ: the entity registry is keyed by (kind symbol) lists and
 the method registry by (generic-name . specializers), so we normalise here.
@@ -263,7 +268,8 @@ only for the handful of symbols that match by name."
                ;; CLASS-INTENT must be reported, not read as "no intent".
                (let ((class (ignore-errors (find-class sym nil))))
                  (when class
-                   (multiple-value-bind (intent status) (telos-call :class-intent class)
+                   (multiple-value-bind (intent status) (telos-call
+                                                         :class-intent class)
                      (when (and (null failure) (not (eq status :ok)))
                        (setf failure (telos-failure status "class-intent")))
                      (when intent (pushnew sym found :test #'eq)))))))
@@ -281,7 +287,8 @@ only for the handful of symbols that match by name."
       (values found failure))))
 
 (defun symbol-has-telos-intent-p (symbol)
-  "Return (values has-intent failure); telos intent by any route, metaobject included.
+  "Return (values has-intent failure): telos intent by any route,
+metaobject included.
 
 FAILURE must be propagated. Collapsing a broken telos into \"no intent\" is
 exactly how this predicate would come to deny a class that demonstrably carries
@@ -290,13 +297,15 @@ intent -- the case the caller's comment warns about."
     (flet ((probe (name &rest args)
              (multiple-value-bind (value status) (apply #'telos-call name args)
                (when (and (null failure) (not (eq status :ok)))
-                 (setf failure (telos-failure status (string-downcase (string name)))))
+                 (setf failure (telos-failure status (string-downcase (string
+                                                                       name)))))
                value)))
       (let* ((entity (probe :get-intent symbol))
              (class (unless entity
                       (let ((c (ignore-errors (find-class symbol nil))))
                         (when c (probe :class-intent c)))))
-             (feature (unless (or entity class) (probe :feature-intent symbol))))
+             (feature (unless (or entity class) (probe :feature-intent
+                                                 symbol))))
         (values (or entity class feature) failure)))))
 
 (defun resolve-intent-symbol (name package-name)
@@ -320,7 +329,8 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                              :name name
                              :detail detail
                              :feature-count feature-count
-                             :suggestions (suggest-names name extra-candidates))))
+                             :suggestions (suggest-names name
+                                           extra-candidates))))
                 (cond
                   (package-name
                    ;; PACKAGE-NAME needs the same coercion NAME gets:
@@ -329,9 +339,11 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                                (name-designator package-name))))
                      (cond
                        ((null pkg)
-                        (not-found (format nil "No package named ~A." package-name) '()))
+                        (not-found (format nil "No package named ~A."
+                                               package-name) '()))
                        (t
-                        (let ((sym (or (find-symbol (string-upcase (string name)) pkg)
+                        (let ((sym (or (find-symbol (string-upcase (string
+                                                                    name)) pkg)
                                        (find-symbol (string name) pkg))))
                           (if sym
                               (list :status :ok :symbol sym)
@@ -340,11 +352,12 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                                          candidates)))))))
                   (t
                    ;; The ambient package wins when it knows the name AND telos
-                   ;; actually has intent for it. The intent check must ask telos
-                   ;; rather than test registry membership: a defclass/i class is
-                   ;; in no registry, and rejecting it here would report "carries
+                   ;; actually has intent for it. The check must ask telos
+                   ;; rather than test registry membership: a defclass/i
+                   ;; class is in no registry; rejecting it here says "carries
                    ;; no telos intent" about a class that demonstrably does.
-                   (let* ((local (or (find-symbol (string-upcase (string name)) *package*)
+                   (let* ((local (or (find-symbol (string-upcase (string name))
+                                      *package*)
                                      (find-symbol (string name) *package*)))
                           (local-intent nil)
                           (local-failure nil))
@@ -353,7 +366,8 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                          (symbol-has-telos-intent-p local)))
                      (cond
                        (local-failure local-failure)
-                       ((and local local-intent) (list :status :ok :symbol local))
+                       ((and local local-intent) (list :status :ok :symbol
+                                                  local))
                        (t
                         (multiple-value-bind (key extras)
                             (resolve-feature-name name candidates)
@@ -361,7 +375,9 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                              (extras
                               (list :status :ambiguous
                                     :name name
-                                    :candidates (mapcar #'qualified-name (cons key extras))))
+                                    :candidates (mapcar #'qualified-name (cons
+                                                                     key
+                                                                     extras))))
                              (key (list :status :ok :symbol key))
                              (t
                               ;; Last resort: an intentful class, invisible to
@@ -373,11 +389,14 @@ Returns a plist with :status :unavailable, :error, :not-found, :ambiguous, or
                                   ((cdr classes)
                                    (list :status :ambiguous
                                          :name name
-                                         :candidates (mapcar #'qualified-name classes)))
-                                  (classes (list :status :ok :symbol (first classes)))
+                                         :candidates (mapcar #'qualified-name
+                                                      classes)))
+                                  (classes (list :status :ok :symbol (first
+                                                                      classes)))
                                   (t
                                    (not-found
-                                    (format nil "No symbol named ~A carries telos intent."
+                                    (format nil
+                                     "No symbol named ~A carries telos intent."
                                             name)
                                     candidates))))))))))))))))))
 
@@ -398,11 +417,14 @@ Returns (:status :ok :features (plists...)) or a failure plist."
                 ;; The inner FEATURE-INTENT call needs checking too. Swallowed,
                 ;; it renders every feature with its purpose silently gone --
                 ;; a reader concludes none of them records one.
-                (multiple-value-bind (intent intent-status) (telos-call :feature-intent feat)
+                (multiple-value-bind (intent intent-status) (telos-call
+                                                        :feature-intent
+                                                        feat)
                   (cond
                     ((not (eq intent-status :ok))
                      (when (null failure)
-                       (setf failure (telos-failure intent-status "feature-intent"))))
+                       (setf failure (telos-failure intent-status
+                                      "feature-intent"))))
                     (t
                      (multiple-value-bind (plist plist-failure)
                          (if intent (intent-to-plist intent) (values nil nil))
@@ -421,7 +443,8 @@ FEATURE-NAME may be a string (bare or package-qualified) or a symbol."
     (if (not (eq :ok (getf resolved :status)))
         resolved
         (let ((feature (getf resolved :feature)))
-          (multiple-value-bind (intent status) (telos-call :feature-intent feature)
+          (multiple-value-bind (intent status) (telos-call :feature-intent
+                                                feature)
             (or (telos-failure status "feature-intent")
                 (multiple-value-bind (plist failure)
                     (if intent (intent-to-plist intent) (values nil nil))
@@ -445,9 +468,11 @@ FEATURE-NAME may be a string (bare or package-qualified) or a symbol."
             (or (telos-failure status "get-intent-entry")
                 (if (null intent)
                     (list :status :ok :kind :unknown :name sym :intent nil)
-                    (multiple-value-bind (plist failure) (intent-to-plist intent)
+                    (multiple-value-bind (plist failure) (intent-to-plist
+                                                          intent)
                       (or failure
-                          (list :status :ok :kind kind :name sym :intent plist))))))))))
+                          (list :status :ok :kind kind :name sym :intent
+                           plist))))))))))
 
 (defun introspect-intent-chain (symbol-name &optional package-name)
   "Trace intent from a symbol up to its root feature.
@@ -466,7 +491,8 @@ Returns the chain from most specific to root."
     (if (not (eq :ok (getf resolved :status)))
         resolved
         (let ((feature (getf resolved :feature)))
-          (multiple-value-bind (members status) (telos-call :feature-members feature)
+          (multiple-value-bind (members status) (telos-call :feature-members
+                                                 feature)
             (or (telos-failure status "feature-members")
                 (list :status :ok :feature feature :members members)))))))
 
@@ -480,9 +506,11 @@ An empty decision list is an :ok result, not a failure."
           (multiple-value-bind (decisions status)
               (telos-call :feature-decisions feature)
             (or (telos-failure status "feature-decisions")
-                (multiple-value-bind (plists failure) (decisions-to-plists decisions)
+                (multiple-value-bind (plists failure) (decisions-to-plists
+                                                       decisions)
                   (or failure
-                      (list :status :ok :feature feature :decisions plists)))))))))
+                      (list :status :ok :feature feature :decisions
+                       plists)))))))))
 
 (defun introspect-list-decisions ()
   "Get all decisions across all features.
@@ -524,7 +552,8 @@ name string to its decision plists."
     (flet ((field (name)
              (multiple-value-bind (value status) (intent-slot intent name)
                (when (and (null failure) (not (eq status :ok)))
-                 (setf failure (telos-failure status (format nil "intent slot ~A" name))))
+                 (setf failure (telos-failure status (format nil
+                                                      "intent slot ~A" name))))
                value)))
       (values (list :purpose (field :purpose)
                     :role (field :role)
@@ -541,7 +570,8 @@ name string to its decision plists."
     (flet ((field (accessor)
              (multiple-value-bind (value status) (telos-call accessor decision)
                (when (and (null failure) (not (eq status :ok)))
-                 (setf failure (telos-failure status (string-downcase (string accessor)))))
+                 (setf failure (telos-failure status (string-downcase (string
+                                                                  accessor)))))
                value)))
       (values (list :id (field :decision-id)
                     :chose (field :decision-chose)
@@ -593,8 +623,9 @@ reload the system that defines your features so its deffeature forms run."
 Reported as its own outcome so that a broken telos is never dressed up as an
 empty or missing result, which would send the reader hunting for the wrong bug."
   (format nil "Telos failed while answering this query. ~A~%~
-This is a fault in telos or a stale FASL, not a missing feature -- the registry ~
-count and contents reported by other telos tools may be wrong until it is fixed."
+This is a fault in telos or a stale FASL, not a missing feature -- the ~
+registry count and contents reported by other telos tools may be wrong ~
+until it is fixed."
           (getf result :detail)))
 
 (defun format-ambiguous (result what)
@@ -626,8 +657,8 @@ Qualify it with a package, e.g. \"~A\"."
   (or (format-failure result "feature")
       (let ((features (getf result :features)))
         (if (null features)
-            "Telos is loaded, but no features are registered. Load a system whose
-source contains deffeature forms."
+            (format nil "Telos is loaded, but no features are ~
+registered. Load a system whose~%source contains deffeature forms.")
             (with-output-to-string (s)
               (format s "Features (~D):~%~%" (length features))
               (dolist (f features)
@@ -646,7 +677,8 @@ source contains deffeature forms."
             (format nil "Feature ~A is registered but has no intent recorded."
                     (or (getf result :feature) feature-name))
             (with-output-to-string (s)
-              (format s "Feature: ~A~%~%" (or (getf result :feature) feature-name))
+              (format s "Feature: ~A~%~%"
+                        (or (getf result :feature) feature-name))
               (format-intent-fields s intent))))))
 
 (defun format-get-intent (result)
@@ -673,7 +705,8 @@ belongs to no feature." (getf result :name))
               (format s "Intent Chain (~D levels):~%~%" (length chain))
               (loop for entry in chain
                     for i from 1
-                    do (format s "~D. [~A] ~A~%" i (getf entry :type) (getf entry :name))
+                    do (format s "~D. [~A] ~A~%"
+                                 i (getf entry :type) (getf entry :name))
                        (when (getf entry :role)
                          (format s "   Role: ~A~%" (getf entry :role)))
                        (when (getf entry :purpose)
@@ -732,7 +765,8 @@ Add them with the :decisions clause of deffeature." name)
                        (when (getf dec :because)
                          (format s "   Because: ~A~%" (getf dec :because)))
                        (when (getf dec :decided-by)
-                         (format s "   Decided by: ~A~%" (getf dec :decided-by)))
+                         (format s "   Decided by: ~A~%"
+                                   (getf dec :decided-by)))
                        (when (getf dec :date)
                          (format s "   Date: ~A~%" (getf dec :date)))
                        (format s "~%")))))))
@@ -744,7 +778,8 @@ Add them with the :decisions clause of deffeature." name)
         (if (null all-decisions)
             "Telos is loaded, but no feature records any decisions."
             (with-output-to-string (s)
-              (let ((total (loop for (nil . decs) in all-decisions sum (length decs))))
+              (let ((total (loop for (nil . decs) in all-decisions sum (length
+                                                                        decs))))
                 (format s "Decisions across ~D feature~:P (~D total):~%~%"
                         (length all-decisions) total))
               (loop for (feature-name . decisions) in all-decisions

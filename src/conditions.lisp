@@ -14,7 +14,9 @@
     :initform nil
     :documentation "Stack trace captured at timeout"))
   (:report (lambda (c s)
-             (format s "Evaluation exceeded ~A second timeout~@[~%~%Backtrace:~%~A~]"
+             (format s "Evaluation exceeded ~A second timeout~
+                      ~@[~%~%Backtrace:~%~A~]"
                      (timeout-seconds c)
                      (timeout-backtrace c))))
-  (:documentation "Signaled when code evaluation exceeds the configured timeout"))
+  (:documentation
+   "Signaled when code evaluation exceeds the configured timeout"))

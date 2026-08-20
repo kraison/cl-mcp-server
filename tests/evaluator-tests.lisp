@@ -38,7 +38,8 @@
                  :error-info "Division by zero")))
     (is-false (cl-mcp-server.evaluator:result-success-p result))
     (is (null (cl-mcp-server.evaluator:result-values result)))
-    (is (equal "Division by zero" (cl-mcp-server.evaluator:result-error result)))))
+    (is (equal "Division by zero" (cl-mcp-server.evaluator:result-error
+                                   result)))))
 
 (test make-evaluation-result-with-output
   "Test creating result with stdout and stderr"
@@ -48,7 +49,8 @@
                  :stdout "Hello, World!"
                  :stderr "Warning: something")))
     (is (equal "Hello, World!" (cl-mcp-server.evaluator:result-stdout result)))
-    (is (equal "Warning: something" (cl-mcp-server.evaluator:result-stderr result)))))
+    (is (equal "Warning: something" (cl-mcp-server.evaluator:result-stderr
+                                     result)))))
 
 (test make-evaluation-result-with-warnings
   "Test creating result with warnings"
@@ -156,7 +158,8 @@
   (let ((result (cl-mcp-server.evaluator:evaluate-code
                  "(format t \"Hello, ~a!\" \"world\")")))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
-    (is (equal "Hello, world!" (cl-mcp-server.evaluator:result-stdout result)))))
+    (is (equal "Hello, world!" (cl-mcp-server.evaluator:result-stdout
+                                result)))))
 
 (test capture-stdout-write-string
   "Test capturing stdout from write-string"
@@ -170,7 +173,8 @@
   (let ((result (cl-mcp-server.evaluator:evaluate-code
                  "(format *error-output* \"error message\")")))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
-    (is (equal "error message" (cl-mcp-server.evaluator:result-stderr result)))))
+    (is (equal "error message" (cl-mcp-server.evaluator:result-stderr
+                                result)))))
 
 (test capture-both-streams
   "Test capturing both stdout and stderr"
@@ -209,7 +213,9 @@
 (test capture-multiple-warnings
   "Test capturing multiple warnings"
   (let ((result (cl-mcp-server.evaluator:evaluate-code
-                 "(warn \"Warning 1\") (warn \"Warning 2\") (warn \"Warning 3\")")))
+                 (concatenate 'string
+                  "(warn \"Warning 1\") (warn \"Warning 2\") "
+                  "(warn \"Warning 3\")"))))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
     (is (= 3 (length (cl-mcp-server.evaluator:result-warnings result))))))
 
@@ -297,7 +303,9 @@
 (test error-preserves-warnings
   "Test that warnings before error are still captured"
   (let ((result (cl-mcp-server.evaluator:evaluate-code
-                 "(warn \"warning before error\") (error \"intentional error\")")))
+                 (concatenate 'string
+                  "(warn \"warning before error\") "
+                  "(error \"intentional error\")"))))
     (is-false (cl-mcp-server.evaluator:result-success-p result))
     (is (= 1 (length (cl-mcp-server.evaluator:result-warnings result))))
     (is (stringp (cl-mcp-server.evaluator:result-error result)))))
@@ -351,7 +359,8 @@
          (formatted (cl-mcp-server.evaluator:format-result result))
          (legacy-size (+ (length formatted)
                          (length "=> ")
-                         (length (first (cl-mcp-server.evaluator:result-values result)))
+                         (length (first (cl-mcp-server.evaluator:result-values
+                                         result)))
                          1)))
     (is (search "large result" formatted))
     (is (null (search "=> " formatted)))
@@ -413,7 +422,8 @@
   "Test that timeout error includes helpful hint"
   (let ((result (cl-mcp-server.evaluator:evaluate-code "(sleep 2)" :timeout 1)))
     (is-false (cl-mcp-server.evaluator:result-success-p result))
-    (is (search "configure-limits" (cl-mcp-server.evaluator:result-error result)))))
+    (is (search "configure-limits" (cl-mcp-server.evaluator:result-error
+                                    result)))))
 
 (test timeout-error-omits-backtrace-by-default
   "Test that immediate timeout output is concise by default"
@@ -425,7 +435,8 @@
 (test nil-timeout-disables-limit
   "Test that NIL timeout disables the limit"
   ;; Short sleep should complete fine with no timeout
-  (let ((result (cl-mcp-server.evaluator:evaluate-code "(sleep 0.1)" :timeout nil)))
+  (let ((result (cl-mcp-server.evaluator:evaluate-code "(sleep 0.1)" :timeout
+                 nil)))
     (is-true (cl-mcp-server.evaluator:result-success-p result))))
 
 (test timeout-preserves-output
@@ -458,7 +469,8 @@
   "Test that default package is CL-USER"
   (let ((result (cl-mcp-server.evaluator:evaluate-code "*package*")))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
-    (is (search "COMMON-LISP-USER" (first (cl-mcp-server.evaluator:result-values result))))))
+    (is (search "COMMON-LISP-USER" (first (cl-mcp-server.evaluator:result-values
+                                           result))))))
 
 (test evaluate-in-specified-package
   "Test evaluating code in a specified package"
@@ -466,16 +478,19 @@
                  "*package*"
                  :package "CL-MCP-SERVER")))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
-    (is (search "CL-MCP-SERVER" (first (cl-mcp-server.evaluator:result-values result))))))
+    (is (search "CL-MCP-SERVER" (first (cl-mcp-server.evaluator:result-values
+                                        result))))))
 
 (test evaluate-package-not-found
   "Test error when package doesn't exist"
   (signals error
-    (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :package "NONEXISTENT-PKG")))
+    (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :package
+     "NONEXISTENT-PKG")))
 
 (test result-contains-package-name
   "Test that result includes package name"
-  (let ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :package "CL")))
+  (let ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :package
+                 "CL")))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
     (is (equal "COMMON-LISP" (cl-mcp-server.evaluator:result-package result)))))
 
@@ -506,11 +521,13 @@
                  "(make-list 1000)"
                  :capture-time t)))
     (is-true (cl-mcp-server.evaluator:result-success-p result))
-    (is (>= (getf (cl-mcp-server.evaluator:result-timing result) :bytes-consed) 0))))
+    (is (>= (getf (cl-mcp-server.evaluator:result-timing result) :bytes-consed)
+         0))))
 
 (test format-result-includes-timing
   "Test that formatted result includes timing when present"
-  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :capture-time t))
+  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :capture-time
+                  t))
          (formatted (cl-mcp-server.evaluator:format-result result)))
     (is (search "Timing" formatted))
     (is (search "ms" formatted))
@@ -520,13 +537,15 @@
 
 (test compile-valid-code
   "Test compiling valid code succeeds"
-  (let ((result (cl-mcp-server.introspection:introspect-compile-form "(+ 1 2)")))
+  (let ((result (cl-mcp-server.introspection:introspect-compile-form
+                 "(+ 1 2)")))
     (is-true (getf result :compiled-p))
     (is (null (getf result :errors)))))
 
 (test compile-type-error
   "Test that type errors are caught during compilation"
-  (let ((result (cl-mcp-server.introspection:introspect-compile-form "(+ 1 \"string\")")))
+  (let ((result (cl-mcp-server.introspection:introspect-compile-form
+                 "(+ 1 \"string\")")))
     (is-true (getf result :compiled-p))  ; SBCL still compiles, with warnings
     (is (not (null (getf result :warnings))))))
 
@@ -545,13 +564,15 @@
 
 (test format-compile-success
   "Test formatting successful compilation result"
-  (let* ((result (cl-mcp-server.introspection:introspect-compile-form "(+ 1 2)"))
+  (let* ((result (cl-mcp-server.introspection:introspect-compile-form
+                  "(+ 1 2)"))
          (formatted (cl-mcp-server.introspection:format-compile-result result)))
     (is (search "successful" formatted))))
 
 (test format-compile-with-warnings
   "Test formatting compilation result with warnings"
-  (let* ((result (cl-mcp-server.introspection:introspect-compile-form "(+ 1 \"bad\")"))
+  (let* ((result (cl-mcp-server.introspection:introspect-compile-form
+                  "(+ 1 \"bad\")"))
          (formatted (cl-mcp-server.introspection:format-compile-result result)))
     (is (search "Warning" formatted))))
 
@@ -559,7 +580,8 @@
 
 (test format-timing-result-success
   "Test formatting timing result for successful execution"
-  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :capture-time t))
+  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :capture-time
+                  t))
          (formatted (cl-mcp-server.evaluator:format-timing-result result)))
     (is (search "Timing:" formatted))
     (is (search "Real time:" formatted))
@@ -570,6 +592,7 @@
 
 (test format-timing-result-error
   "Test formatting timing result for error"
-  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(error \"oops\")" :capture-time t))
+  (let* ((result (cl-mcp-server.evaluator:evaluate-code "(error \"oops\")"
+                  :capture-time t))
          (formatted (cl-mcp-server.evaluator:format-timing-result result)))
     (is (search "Error" formatted))))

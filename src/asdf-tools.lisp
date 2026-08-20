@@ -1,5 +1,5 @@
 ;;; src/asdf-tools.lisp
-;;; ABOUTME: ASDF and Quicklisp integration tools for system inspection and loading
+;;; ABOUTME: ASDF and Quicklisp tools for system inspection and loading
 
 (in-package #:cl-mcp-server.asdf-tools)
 
@@ -9,7 +9,8 @@
 
 (defun normalize-dependency (dep)
   "Extract system name from a dependency specification.
-Handles strings, symbols, and feature expressions like (:feature :foo (:require \"bar\"))."
+Handles strings, symbols, and feature expressions such as
+(:feature :foo (:require \"bar\"))."
   (cond
     ((stringp dep) dep)
     ((symbolp dep) (string-downcase (symbol-name dep)))
@@ -123,7 +124,8 @@ Returns a plist with :system, :direct, and optionally :transitive."
                      (dolist (dep deps)
                        (let ((dep-name (normalize-dependency dep)))
                          (when (and dep-name
-                                    (not (member dep-name all-deps :test #'string-equal)))
+                                    (not (member dep-name all-deps
+                                                 :test #'string-equal)))
                            (push dep-name all-deps)
                            (let ((dep-sys (asdf:find-system dep-name nil)))
                              (when dep-sys
@@ -169,7 +171,8 @@ Returns list of plists with :name and :pathname."
                   results)))))
     ;; Also check ASDF source registry
     (dolist (sys-name (asdf:registered-systems))
-      (unless (find sys-name results :key (lambda (r) (getf r :name)) :test #'string-equal)
+      (unless (find sys-name results :test #'string-equal
+                    :key (lambda (r) (getf r :name)))
         (let ((sys (asdf:find-system sys-name nil)))
           (when sys
             (push (list :name sys-name
@@ -210,7 +213,8 @@ Returns a plist with :found, :name, :pathname."
 
 (defun introspect-quickload (system-name &key verbose)
   "Load a system via Quicklisp, downloading if necessary.
-Returns a plist with :loaded, :system, :downloaded (if any new systems were fetched)."
+Returns a plist with :loaded, :system, :downloaded (if any new systems
+were fetched)."
   (unless (quicklisp-available-p)
     (error "Quicklisp is not available"))
   (let* ((ql-quickload (find-symbol "QUICKLOAD" :ql))

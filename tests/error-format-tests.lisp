@@ -90,7 +90,8 @@
                    (cl-mcp-server.error-format:format-backtrace)
                    (deep-call (1- n)))))
       (let* ((backtrace (deep-call 50))
-             (truncated (cl-mcp-server.error-format::truncate-backtrace backtrace))
+             (truncated (cl-mcp-server.error-format::truncate-backtrace
+                         backtrace))
              (lines (count #\Newline truncated)))
         ;; Should have at most max-depth + 1 lines (including "...")
         (is (<= lines 6))))))
@@ -234,12 +235,17 @@
 ;;; Phase C: Structured Error Capture Tests
 ;;; ==========================================================================
 
+(defun ef-capture (c)
+  "Shorthand for capture-structured-error: the package-qualified name does
+not fit inside a handler-bind at 80 columns."
+  (cl-mcp-server.error-format:capture-structured-error c))
+
 (test capture-structured-error-basic
   "capture-structured-error returns structured plist"
   (let ((info (catch 'captured
                 (handler-bind ((error (lambda (c)
                                         (throw 'captured
-                                          (cl-mcp-server.error-format:capture-structured-error c)))))
+                                          (ef-capture c)))))
                   (/ 1 0)))))
     (is (listp info))
     (is (stringp (getf info :type)))
@@ -253,7 +259,7 @@
   (let ((info (catch 'captured
                 (handler-bind ((error (lambda (c)
                                         (throw 'captured
-                                          (cl-mcp-server.error-format:capture-structured-error c)))))
+                                          (ef-capture c)))))
                   (/ 1 0)))))
     (is (string= "DIVISION-BY-ZERO" (getf info :type)))))
 
@@ -262,7 +268,7 @@
   (let* ((info (catch 'captured
                  (handler-bind ((error (lambda (c)
                                          (throw 'captured
-                                           (cl-mcp-server.error-format:capture-structured-error c)))))
+                                           (ef-capture c)))))
                    (/ 1 0))))
          (bt (getf info :backtrace)))
     (is (> (length bt) 0))
@@ -276,7 +282,7 @@
   (let* ((info (catch 'captured
                  (handler-bind ((error (lambda (c)
                                          (throw 'captured
-                                           (cl-mcp-server.error-format:capture-structured-error c)))))
+                                           (ef-capture c)))))
                    (/ 1 0))))
          (restarts (getf info :restarts)))
     ;; Should have at least one restart
@@ -291,7 +297,7 @@
   (let* ((info (catch 'captured
                  (handler-bind ((error (lambda (c)
                                          (throw 'captured
-                                           (cl-mcp-server.error-format:capture-structured-error c)))))
+                                           (ef-capture c)))))
                    (/ 1 0))))
          (output (cl-mcp-server.error-format:format-structured-error info)))
     (is (stringp output))
@@ -305,7 +311,7 @@
   (let* ((info (catch 'captured
                  (handler-bind ((error (lambda (c)
                                          (throw 'captured
-                                           (cl-mcp-server.error-format:capture-structured-error c)))))
+                                           (ef-capture c)))))
                    (/ 1 0))))
          (output (cl-mcp-server.error-format:format-backtrace-detail info)))
     (is (stringp output))
@@ -317,9 +323,10 @@
   (let* ((info (catch 'captured
                  (handler-bind ((error (lambda (c)
                                          (throw 'captured
-                                           (cl-mcp-server.error-format:capture-structured-error c)))))
+                                           (ef-capture c)))))
                    (/ 1 0))))
-         (output (cl-mcp-server.error-format:format-backtrace-detail info :max-frames 3)))
+         (output (cl-mcp-server.error-format:format-backtrace-detail info
+                  :max-frames 3)))
     ;; Count "Frame N:" occurrences
     (let ((count 0))
       (loop for pos = (search "Frame " output :start2 0)

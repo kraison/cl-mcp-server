@@ -57,7 +57,8 @@
 (test scan-forward-skip-line-comment
   "Parens inside line comments are ignored"
   (let ((code (format nil "(foo ; )~%  bar)")))
-    (is (= (1- (length code)) (cl-mcp-server.paren-tools::scan-forward code 0)))))
+    (is (= (1- (length code)) (cl-mcp-server.paren-tools::scan-forward code
+                               0)))))
 
 (test scan-forward-skip-block-comment
   "Parens inside #|...|# block comments are ignored"
@@ -65,7 +66,8 @@
 
 (test scan-forward-nested-block-comment
   "Nested block comments are handled"
-  (is (= 20 (cl-mcp-server.paren-tools::scan-forward "(foo #| #| ) |# |# x)" 0))))
+  (is (= 20 (cl-mcp-server.paren-tools::scan-forward "(foo #| #| ) |# |# x)"
+             0))))
 
 (test scan-forward-skip-char-literal
   "Character literal #\\( is not an open paren"
@@ -106,7 +108,8 @@
 (test scan-backward-skip-line-comment
   "Parens inside line comments are ignored when scanning backward"
   (let ((code (format nil "(foo~%  ; )~%  bar)")))
-    (is (= 0 (cl-mcp-server.paren-tools::scan-backward code (1- (length code)))))))
+    (is (= 0 (cl-mcp-server.paren-tools::scan-backward code (1- (length
+                                                                 code)))))))
 
 (test scan-backward-skip-block-comment
   "Parens inside block comments are ignored when scanning backward"
@@ -179,7 +182,8 @@
     ;; Line 3 = "     b))", the last ) is at column 7
     (multiple-value-bind (line col)
         (cl-mcp-server.paren-tools::offset-to-line-col code last-close-pos)
-      (let* ((result (cl-mcp-server.paren-tools:find-matching-paren code line col))
+      (let* ((result (cl-mcp-server.paren-tools:find-matching-paren code line
+                      col))
              (output (cl-mcp-server.paren-tools:format-match-result result)))
         (is (search "defun" output))
         (is (search "line 1, column 0" output))))))
@@ -200,11 +204,14 @@
 
 (test scan-backward-multiline-defun
   "Backward match across many lines finds correct defun"
-  (let* ((code (format nil "(defun foo (x y)~%  (let ((a 1)~%        (b 2))~%    (+ a b)))"))
+  (let* ((code
+          (format nil
+           "(defun foo (x y)~%  (let ((a 1)~%        (b 2))~%    (+ a b)))"))
          (last-pos (1- (length code))))
     (multiple-value-bind (line col)
         (cl-mcp-server.paren-tools::offset-to-line-col code last-pos)
-      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line col)))
+      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line
+                     col)))
         (is (getf result :matched))
         (is (= 1 (getf result :match-line)))
         (is (= 0 (getf result :match-column)))))))
@@ -215,13 +222,18 @@
 
 (test find-matching-paren-preserves-context-radius
   "Context includes lines above and below match"
-  (let* ((code (format nil ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))~%;;; footer"))
+  (let* ((code (format nil
+                ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))~%;;; footer"))
          ;; Find the closing ) of defun at end of line 4
          ;; Line 4 = "  (- 3 4))" — the last ) closes the defun
-         (last-close (1- (length (format nil ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))")))))
+         (last-close
+          (1- (length
+               (format nil
+                ";;; header~%(defun foo ()~%  (+ 1 2)~%  (- 3 4))")))))
     (multiple-value-bind (line col)
         (cl-mcp-server.paren-tools::offset-to-line-col code last-close)
-      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line col)))
+      (let ((result (cl-mcp-server.paren-tools:find-matching-paren code line
+                     col)))
         (is (getf result :matched))
         (is (= 2 (getf result :match-line)))
         (let ((ctx (getf result :context)))

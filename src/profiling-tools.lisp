@@ -12,7 +12,8 @@
 ;;; ==========================================================================
 
 (defun introspect-profile-code (code &key (mode :cpu) (max-samples 1000)
-                                       (sample-interval 0.01) (report-type :flat)
+                                       (sample-interval 0.01)
+                                       (report-type :flat)
                                        (package "CL-USER"))
   "Profile CODE using statistical sampling.
 MODE can be :CPU, :TIME, or :ALLOC.
@@ -24,7 +25,7 @@ Returns a plist with :result, :report, and profiling metadata."
          (report-string nil)
          (result-values nil)
          (error-message nil))
-    ;; Parse the code (bind *read-eval* nil to prevent #. execution at read time)
+    ;; Parse the code; *read-eval* nil stops #. running at read time.
     (let ((forms (let ((*read-eval* nil))
                    (with-input-from-string (s code)
                      (loop for form = (read s nil 'eof)
@@ -96,11 +97,13 @@ ACTION can be:
                          (let ((pkg (or (find-package "CL-USER") *package*)))
                            (find-symbol (string-upcase fn-name) pkg)))))
             (when (and sym (fboundp sym))
-              ;; NOTE: sb-profile:profile is a macro, eval required for dynamic symbols
+              ;; sb-profile:profile is a macro; eval is required for
+              ;; dynamic symbols.
               (eval `(sb-profile:profile ,sym))
               (push sym *profiled-functions*)))))
        (package
-        ;; NOTE: sb-profile:profile is a macro, eval required for dynamic package arg
+        ;; sb-profile:profile is a macro; eval is required for a dynamic
+        ;; package argument.
         (eval `(sb-profile:profile ,package))
         (setf *profiled-functions* (list package))))
      (list :action :start
@@ -132,7 +135,9 @@ ACTION can be:
 
     (otherwise
      (list :action action
-           :error (format nil "Unknown action ~A. Use :start, :stop, :report, :reset, or :status" action)))))
+           :error (format nil "Unknown action ~A. Use :start, :stop, ~
+                              :report, :reset, or :status"
+                          action)))))
 
 (defun format-profile-functions-result (info)
   "Format deterministic profiling result as human-readable string."
@@ -201,7 +206,8 @@ If GC-FIRST is true, run garbage collection before reporting."
 ;;; Allocation Profiling
 ;;; ==========================================================================
 
-(defun introspect-allocation-profile (code &key (max-samples 1000) (package "CL-USER"))
+(defun introspect-allocation-profile (code &key (max-samples 1000)
+                                             (package "CL-USER"))
   "Profile memory allocation in CODE using sb-sprof :alloc mode.
 Returns detailed allocation information."
   (let* ((pkg (or (find-package (string-upcase package))
@@ -212,7 +218,7 @@ Returns detailed allocation information."
          (result-values nil)
          (error-message nil)
          (bytes-before (ignore-errors (sb-ext:get-bytes-consed))))
-    ;; Parse the code (bind *read-eval* nil to prevent #. execution at read time)
+    ;; Parse the code; *read-eval* nil stops #. running at read time.
     (let ((forms (let ((*read-eval* nil))
                    (with-input-from-string (s code)
                      (loop for form = (read s nil 'eof)

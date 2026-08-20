@@ -25,7 +25,7 @@
   :decisions ((:id :own-package
                :chose "Define the feature in its own package"
                :over ("Define it in CL-USER")
-               :because "That is what real projects do, and it is what broke the wrapper."
+               :because "What real projects do, and what broke the wrapper."
                :date "2026-07-28"
                :decided-by "quasi")
               (:id :two-decisions
@@ -50,7 +50,8 @@
 (telos:defclass/i widget-member-class ()
   ((id :initform nil))
   (:feature sample-widget-feature)
-  (:purpose "Give SAMPLE-WIDGET-FEATURE a class member defined via defclass/i."))
+  (:purpose
+   "Give SAMPLE-WIDGET-FEATURE a class member defined via defclass/i."))
 
 ;;; Ambiguity fixture: the same symbol-name registered from two packages.
 (telos:deffeature duplicated-feature

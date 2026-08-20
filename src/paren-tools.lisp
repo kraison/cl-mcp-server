@@ -13,7 +13,7 @@
 ;;; ==========================================================================
 
 (defun line-col-to-offset (code line column)
-  "Convert 1-based LINE and 0-based COLUMN to a 0-based character offset in CODE.
+  "Convert 1-based LINE and 0-based COLUMN to a 0-based offset in CODE.
 Returns nil if the position is out of range."
   (let ((current-line 1)
         (line-start 0)
@@ -114,7 +114,7 @@ Returns offset after closing |, or nil if unterminated."
 (defun scan-forward (code start)
   "Scan forward from open paren at START to find matching close paren.
 Returns the offset of the matching close paren, or nil if unmatched.
-Skips: strings, line comments, block comments, character literals, pipe escapes."
+Skips: strings, line and block comments, character literals, pipe escapes."
   (let ((len (length code))
         (depth 1)
         (i (1+ start)))
@@ -273,7 +273,8 @@ Returns a plist with:
     (cond
       ((or (null offset) (>= offset (length code)))
        (list :matched nil
-             :error (format nil "Position out of range: line ~D, column ~D" line column)))
+             :error (format nil "Position out of range: line ~D, column ~D"
+                            line column)))
       (t
        (let ((ch (char code offset)))
          (cond
@@ -289,7 +290,8 @@ Returns a plist with:
                           :match-column mc
                           :context (extract-context code match)))
                   (list :matched nil
-                        :error (format nil "Unmatched open paren at line ~D, column ~D"
+                        :error (format nil "Unmatched open paren at line ~D, ~
+                                           column ~D"
                                        line column)))))
            ((char= ch #\))
             (let ((match (scan-backward code offset)))
@@ -303,11 +305,13 @@ Returns a plist with:
                           :match-column mc
                           :context (extract-context code match)))
                   (list :matched nil
-                        :error (format nil "Unmatched close paren at line ~D, column ~D"
+                        :error (format nil "Unmatched close paren at line ~D, ~
+                                           column ~D"
                                        line column)))))
            (t
             (list :matched nil
-                  :error (format nil "Character at line ~D, column ~D is '~C', not a parenthesis"
+                  :error (format nil "Character at line ~D, column ~D is ~
+                                     '~C', not a parenthesis"
                                  line column ch)))))))))
 
 (defun format-match-result (result)

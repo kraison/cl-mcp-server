@@ -21,7 +21,8 @@
 
 (defmethod hs-fixture-dispatch ((object integer) (mode (eql :fast))) :fast)
 (defmethod hs-fixture-dispatch ((object integer) (mode (eql :slow))) :slow)
-(defmethod hs-fixture-dispatch ((object string) (mode (eql :fast))) :string-fast)
+(defmethod hs-fixture-dispatch ((object string) (mode (eql :fast)))
+ :string-fast)
 (defmethod hs-fixture-dispatch ((object t) (mode t)) :fallback)
 
 (defun hs-fixture-plain-function (x) (1+ x))
@@ -135,7 +136,8 @@
 (test specializer-label-renders-class-name
   "Class specializers render as the bare class name"
   (is (string= "INTEGER"
-               (cl-mcp-server.hyperspec:specializer-label (find-class 'integer)))))
+               (cl-mcp-server.hyperspec:specializer-label (find-class
+                                                           'integer)))))
 
 (test eql-values-enumerated-by-position
   "The accepted EQL values are collected for the dispatching argument"
@@ -152,7 +154,8 @@
   "A value specialized in several methods is listed once"
   (let* ((info (cl-mcp-server.hyperspec:generic-function-info
                 "hs-fixture-dispatch" :package "CL-MCP-SERVER-TESTS"))
-         (arg1 (cdr (assoc 1 (cl-mcp-server.hyperspec:eql-specializer-values info)))))
+         (arg1 (cdr (assoc 1 (cl-mcp-server.hyperspec:eql-specializer-values
+                              info)))))
     ;; :fast appears in two methods but must appear once here
     (is (= 1 (count-if (lambda (s) (search "FAST" s)) arg1)))))
 
@@ -228,7 +231,8 @@
     (declare (ignore session))
     (dolist (name '("hyperspec-lookup" "describe-generic-function"
                     "find-definition-source"))
-      (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) name)))
+      (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                      name)))
           "tool ~A should be registered" name))))
 
 (test hyperspec-lookup-tool-call

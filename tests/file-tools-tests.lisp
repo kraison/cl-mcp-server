@@ -59,7 +59,8 @@
 
 (test validate-accepts-empty-content
   "Empty content is vacuously valid with zero forms"
-  (multiple-value-bind (ok count) (cl-mcp-server.file-tools:validate-file-content "")
+  (multiple-value-bind (ok count)
+   (cl-mcp-server.file-tools:validate-file-content "")
     (is-true ok)
     (is (= 0 count))))
 
@@ -93,7 +94,8 @@
 
 (test paren-balance-unclosed
   "Unclosed parens report positive depth"
-  (is (= 1 (cl-mcp-server.file-tools:count-paren-balance "(defun f (x) (+ x 1)"))))
+  (is (= 1 (cl-mcp-server.file-tools:count-paren-balance
+            "(defun f (x) (+ x 1)"))))
 
 (test paren-balance-extra-close
   "Extra closers report negative depth"
@@ -101,7 +103,8 @@
 
 (test paren-balance-ignores-strings
   "Parens inside string literals are not delimiters"
-  (is (= 0 (cl-mcp-server.file-tools:count-paren-balance "(format nil \"((((\")"))))
+  (is (= 0 (cl-mcp-server.file-tools:count-paren-balance
+            "(format nil \"((((\")"))))
 
 (test paren-balance-ignores-comments
   "Parens inside line comments are not delimiters"
@@ -198,7 +201,8 @@
   "An unused variable is surfaced as a diagnostic but is not a failure"
   (with-tmp-lisp-file (path)
     (let ((r (cl-mcp-server.file-tools:write-lisp-file
-              path "(defun ft-warn (x) (let ((unused 5)) x))" :compile-check t)))
+              path "(defun ft-warn (x) (let ((unused 5)) x))"
+              :compile-check t)))
       (is-true (getf r :written-p))
       (is-false (getf r :compile-failure-p))
       (is-true (getf r :diagnostics)))))
@@ -275,7 +279,8 @@
       (declare (ignore session))
       (let ((text (call-test-tool server "write-lisp-file"
                                   `(("path" . ,(namestring path))
-                                    ("content" . "(defun ft-tool-probe (x) (+ x 7))")))))
+                                    ("content" .
+                                     "(defun ft-tool-probe (x) (+ x 7))")))))
         (is (search "Wrote" text))
         (is-true (probe-file path))
         (load path)

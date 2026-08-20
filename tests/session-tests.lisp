@@ -85,7 +85,8 @@
             (:function . test-fn2)
             (:variable . *test-var*)
             (:macro . test-macro)))
-    (let ((funcs (cl-mcp-server.session:list-definitions session :type :function)))
+    (let ((funcs (cl-mcp-server.session:list-definitions session :type
+                  :function)))
       (is (= 2 (length funcs)))
       (is (every (lambda (d) (eq :function (car d))) funcs)))))
 

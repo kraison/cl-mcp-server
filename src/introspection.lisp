@@ -19,10 +19,12 @@
 
 (defun symbol-type-info (sym)
   "Return a keyword describing what SYM names.
-Returns one of: :macro, :generic-function, :function, :class, :variable, :symbol."
+Returns one of: :macro, :generic-function, :function, :class, :variable,
+:symbol."
   (cond
     ((and (fboundp sym) (macro-function sym)) :macro)
-    ((and (fboundp sym) (typep (fdefinition sym) 'generic-function)) :generic-function)
+    ((and (fboundp sym) (typep (fdefinition sym) 'generic-function))
+     :generic-function)
     ((fboundp sym) :function)
     ((find-class sym nil) :class)
     ((boundp sym) :variable)
@@ -82,7 +84,8 @@ Returns a plist with:
           (let ((pathname (sb-introspect:definition-source-pathname source)))
             (when pathname
               (setf (getf info :source-file) (namestring pathname))))
-          (let ((offset (sb-introspect:definition-source-character-offset source)))
+          (let ((offset (sb-introspect:definition-source-character-offset
+                         source)))
             (when offset
               (setf (getf info :source-offset) offset))))))
     info))
@@ -174,13 +177,15 @@ Returns list of plists with :caller, :caller-package, :location."
               (let* ((caller (car entry))
                      (source (cdr entry))
                      (pathname (when source
-                                 (sb-introspect:definition-source-pathname source))))
+                                 (sb-introspect:definition-source-pathname
+                                  source))))
                 (list :caller (if (symbolp caller)
                                   (symbol-name caller)
                                   (prin1-to-string caller))
                       :caller-package (when (symbolp caller)
                                         (and (symbol-package caller)
-                                             (package-name (symbol-package caller))))
+                                             (package-name (symbol-package
+                                                            caller))))
                       :location (when pathname (namestring pathname)))))
             callers)))
 
@@ -211,13 +216,15 @@ Returns list of plists with :referencer, :referencer-package, :location."
               (let* ((referencer (car entry))
                      (source (cdr entry))
                      (pathname (when source
-                                 (sb-introspect:definition-source-pathname source))))
+                                 (sb-introspect:definition-source-pathname
+                                  source))))
                 (list :referencer (if (symbolp referencer)
                                       (symbol-name referencer)
                                       (prin1-to-string referencer))
                       :referencer-package (when (symbolp referencer)
                                             (and (symbol-package referencer)
-                                                 (package-name (symbol-package referencer))))
+                                                 (package-name (symbol-package
+                                                                referencer))))
                       :location (when pathname (namestring pathname)))))
             refs)))
 
@@ -248,10 +255,14 @@ Returns plist with :original, :expanded, :changed-p."
                       (package package)
                       (string (or (find-package (string-upcase package))
                                   (error 'cl-mcp.conditions:invalid-params
-                                         :message (format nil "Package ~A not found" package))))
+                                         :message (format nil
+                                                   "Package ~A not found"
+                                                   package))))
                       (symbol (or (find-package package)
                                   (error 'cl-mcp.conditions:invalid-params
-                                         :message (format nil "Package ~A not found" package))))))
+                                         :message (format nil
+                                                   "Package ~A not found"
+                                                   package))))))
          (form (let ((*read-eval* nil))
                  (read-from-string form-string)))
          (expanded (if full
@@ -280,17 +291,19 @@ Returns plist with :original, :expanded, :changed-p."
 
 (defun introspect-compile-form (form-string &key (package *package*))
   "Compile code in FORM-STRING without executing it.
-Catches compilation warnings and errors that wouldn't appear during simple evaluation.
+Catches compilation warnings and errors that plain evaluation misses.
 PACKAGE sets the read context.
 Returns plist with :compiled-p :warnings :errors :notes."
   (let* ((pkg (etypecase package
                 (package package)
                 (string (or (find-package (string-upcase package))
                             (error 'cl-mcp.conditions:invalid-params
-                                   :message (format nil "Package ~A not found" package))))
+                                   :message (format nil "Package ~A not found"
+                                                        package))))
                 (symbol (or (find-package package)
                             (error 'cl-mcp.conditions:invalid-params
-                                   :message (format nil "Package ~A not found" package))))))
+                                   :message (format nil "Package ~A not found"
+                                                        package))))))
          (*package* pkg)
          (warnings nil)
          (errors nil)
@@ -392,7 +405,8 @@ Returns a plist with:
               for prev = (if (> i 0) (char code-string (1- i)) #\Space)
               do (case char
                    (#\Newline (incf line))
-                   (#\" (unless (char= prev #\\) (setf in-string (not in-string))))
+                   (#\" (unless (char= prev #\\) (setf in-string (not
+                                                                  in-string))))
                    (#\( (unless in-string (incf depth)))
                    (#\) (unless in-string (decf depth)))))
         (list :valid nil
@@ -420,9 +434,11 @@ Returns a plist with:
           (format s "✗ Syntax invalid~%~%")
           (format s "Error: ~A~%" (getf result :error))
           (when (getf result :unclosed-count)
-            (format s "Unclosed parentheses: ~D~%" (getf result :unclosed-count)))
+            (format s "Unclosed parentheses: ~D~%"
+                      (getf result :unclosed-count)))
           (when (getf result :line-hint)
-            (format s "Approximate location: line ~D~%" (getf result :line-hint)))))))
+            (format s "Approximate location: line ~D~%"
+                      (getf result :line-hint)))))))
 
 ;;; ==========================================================================
 ;;; D.1: class-info - CLOS Class Introspection
@@ -431,7 +447,8 @@ Returns a plist with:
 (defun introspect-slot (slot-def)
   "Extract information from a slot definition.
 Works for both direct and effective slot definitions.
-Returns a plist with :name, :type, :initargs, :initform, :readers, :writers, :allocation."
+Returns a plist with :name, :type, :initargs, :initform, :readers,
+:writers, :allocation."
   (let ((is-direct (typep slot-def 'sb-mop:direct-slot-definition)))
     (list :name (sb-mop:slot-definition-name slot-def)
           :type (let ((type (sb-mop:slot-definition-type slot-def)))
@@ -470,14 +487,20 @@ Returns a plist with:
                   (class class-designator)
                   (symbol (or (find-class class-designator nil)
                               (error 'cl-mcp.conditions:invalid-params
-                                     :message (format nil "Class ~A not found" class-designator))))
-                  (string (let ((sym (find-symbol (string-upcase class-designator))))
+                                     :message (format nil "Class ~A not found"
+                                                          class-designator))))
+                  (string (let ((sym (find-symbol (string-upcase
+                                                   class-designator))))
                             (if sym
                                 (or (find-class sym nil)
                                     (error 'cl-mcp.conditions:invalid-params
-                                           :message (format nil "~A is not a class" class-designator)))
+                                           :message (format nil
+                                                     "~A is not a class"
+                                                     class-designator)))
                                 (error 'cl-mcp.conditions:invalid-params
-                                       :message (format nil "Symbol ~A not found" class-designator)))))))
+                                       :message (format nil
+                                                 "Symbol ~A not found"
+                                                 class-designator)))))))
          (name (class-name class)))
     ;; Ensure class is finalized so we can get effective slots
     (unless (sb-mop:class-finalized-p class)
@@ -497,15 +520,18 @@ Returns a plist with:
                                 (sb-mop:class-direct-slots class))
           :effective-slots (mapcar #'introspect-slot
                                    (sb-mop:class-slots class))
-          :default-initargs (let ((initargs (sb-mop:class-default-initargs class)))
+          :default-initargs (let ((initargs (sb-mop:class-default-initargs
+                                             class)))
                               (mapcar (lambda (ia)
                                         (list :key (first ia)
                                               :value (let ((*print-length* 10)
                                                            (*print-level* 3))
                                                        (handler-case
                                                            (prin1-to-string
-                                                            (funcall (third ia)))
-                                                         (error () "<error>")))))
+                                                            (funcall (third
+                                                                      ia)))
+                                                         (error ()
+                                                          "<error>")))))
                                       initargs)))))
 
 (defun format-slot-info (slot &key (indent "  "))
@@ -567,7 +593,8 @@ Returns a plist with:
 
 (defun introspect-method (method)
   "Extract information from a method object.
-Returns a plist with :generic-function, :qualifiers, :lambda-list, :specializers, :documentation."
+Returns a plist with :generic-function, :qualifiers, :lambda-list,
+:specializers, :documentation."
   (let ((gf (sb-mop:method-generic-function method)))
     (list :generic-function (when gf
                               (let ((name (sb-mop:generic-function-name gf)))
@@ -580,7 +607,8 @@ Returns a plist with :generic-function, :qualifiers, :lambda-list, :specializers
                                   (cond ((typep spec 'class)
                                          (class-name spec))
                                         ((typep spec 'sb-mop:eql-specializer)
-                                         (list 'eql (sb-mop:eql-specializer-object spec)))
+                                         (list 'eql
+                                          (sb-mop:eql-specializer-object spec)))
                                         (t spec)))
                                 (sb-mop:method-specializers method))
           :documentation (documentation method t))))
@@ -594,14 +622,20 @@ Returns a list of method info plists."
                   (class class-designator)
                   (symbol (or (find-class class-designator nil)
                               (error 'cl-mcp.conditions:invalid-params
-                                     :message (format nil "Class ~A not found" class-designator))))
-                  (string (let ((sym (find-symbol (string-upcase class-designator))))
+                                     :message (format nil "Class ~A not found"
+                                                          class-designator))))
+                  (string (let ((sym (find-symbol (string-upcase
+                                                   class-designator))))
                             (if sym
                                 (or (find-class sym nil)
                                     (error 'cl-mcp.conditions:invalid-params
-                                           :message (format nil "~A is not a class" class-designator)))
+                                           :message (format nil
+                                                     "~A is not a class"
+                                                     class-designator)))
                                 (error 'cl-mcp.conditions:invalid-params
-                                       :message (format nil "Symbol ~A not found" class-designator)))))))
+                                       :message (format nil
+                                                 "Symbol ~A not found"
+                                                 class-designator)))))))
          (methods (sb-mop:specializer-direct-methods class)))
     (when include-inherited
       (dolist (super (rest (sb-mop:class-precedence-list class)))
@@ -644,10 +678,12 @@ Returns the symbol or signals an error if not found."
   (let* ((pkg (if package-name
                   (or (find-package (string-upcase package-name))
                       (error 'cl-mcp.conditions:invalid-params
-                             :message (format nil "Package ~A not found" package-name)))
+                             :message (format nil "Package ~A not found"
+                                                  package-name)))
                   *package*))
          (sym (find-symbol (string-upcase name) pkg)))
     (unless sym
       (error 'cl-mcp.conditions:invalid-params
-             :message (format nil "Symbol ~A not found in package ~A" name (package-name pkg))))
+             :message (format nil "Symbol ~A not found in package ~A"
+                                  name (package-name pkg))))
     sym))

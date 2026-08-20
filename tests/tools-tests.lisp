@@ -17,7 +17,8 @@
   "Test that tool definitions have required fields"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let ((tool (cl-mcp.tools:get-tool (test-server-registry server) "evaluate-lisp")))
+    (let ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                 "evaluate-lisp")))
       (is (not (null tool)))
       (is (stringp (cl-mcp.tools:tool-name tool)))
       (is (stringp (cl-mcp.tools:tool-description tool)))
@@ -49,14 +50,16 @@
   "Test that get-tool retrieves the correct tool by name"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let ((tool (cl-mcp.tools:get-tool (test-server-registry server) "evaluate-lisp")))
+    (let ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                 "evaluate-lisp")))
       (is (string= "evaluate-lisp" (cl-mcp.tools:tool-name tool))))))
 
 (test get-tool-unknown-returns-nil
   "Test that get-tool returns nil for unknown tools"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (null (cl-mcp.tools:get-tool (test-server-registry server) "nonexistent-tool")))))
+    (is (null (cl-mcp.tools:get-tool (test-server-registry server)
+               "nonexistent-tool")))))
 
 ;;; ==========================================================================
 ;;; Tool Schema Tests
@@ -66,7 +69,8 @@
   "Test evaluate-lisp tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "evaluate-lisp"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "evaluate-lisp"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=))))
       (let ((required (cdr (assoc "required" schema :test #'string=))))
@@ -76,7 +80,8 @@
   "Test list-definitions tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "list-definitions"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "list-definitions"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=))))
       ;; list-definitions has no required params
@@ -87,7 +92,8 @@
   "Test reset-session tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "reset-session"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "reset-session"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=)))))))
 
@@ -95,7 +101,8 @@
   "Test load-system tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "load-system"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "load-system"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=))))
       (let ((required (cdr (assoc "required" schema :test #'string=))))
@@ -109,7 +116,8 @@
   "Test that tools can be formatted for MCP tools/list response"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let ((tools-json (cl-mcp.tools:tools-for-mcp (test-server-registry server))))
+    (let ((tools-json (cl-mcp.tools:tools-for-mcp (test-server-registry
+                                                   server))))
       (is (listp tools-json))
       (dolist (tool tools-json)
         (is (assoc "name" tool :test #'string=))
@@ -168,7 +176,8 @@
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
     (signals cl-mcp.conditions:method-not-found
-      (cl-mcp.tools:call-tool (test-server-registry server) "nonexistent-tool" nil))))
+      (cl-mcp.tools:call-tool (test-server-registry server) "nonexistent-tool"
+       nil))))
 
 (test call-tool-missing-required-signals-error
   "Test that missing required args signals invalid-params"
@@ -177,7 +186,8 @@
     (cl-mcp-server.session:with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
       (signals cl-mcp.conditions:invalid-params
-        (cl-mcp.tools:call-tool (test-server-registry server) "evaluate-lisp" nil)))))
+        (cl-mcp.tools:call-tool (test-server-registry server) "evaluate-lisp"
+         nil)))))
 
 (test validate-tool-args-success
   "Test validate-tool-args with valid arguments"
@@ -211,7 +221,8 @@
   "Test that configure-limits tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "configure-limits"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "configure-limits"))))))
 
 (test configure-limits-returns-current-config
   "Test that configure-limits returns current configuration"
@@ -319,13 +330,15 @@
   "Test that compile-form tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "compile-form"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "compile-form"))))))
 
 (test compile-form-schema
   "Test compile-form tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "compile-form"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "compile-form"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=))))
       (let ((required (cdr (assoc "required" schema :test #'string=))))
@@ -382,13 +395,15 @@
   "Test that time-execution tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "time-execution"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "time-execution"))))))
 
 (test time-execution-schema
   "Test time-execution tool has correct schema"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "time-execution"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "time-execution"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       (is (string= "object" (cdr (assoc "type" schema :test #'string=))))
       (let ((required (cdr (assoc "required" schema :test #'string=))))
@@ -450,7 +465,8 @@
   "Test that get-usage-guide tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "get-usage-guide"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "get-usage-guide"))))))
 
 (test get-usage-guide-returns-markdown
   "Test get-usage-guide returns markdown documentation"
@@ -476,7 +492,8 @@
   "Test get-usage-guide works without arguments"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server) "get-usage-guide"))
+    (let* ((tool (cl-mcp.tools:get-tool (test-server-registry server)
+                  "get-usage-guide"))
            (schema (cl-mcp.tools:tool-input-schema tool)))
       ;; Should have no required args
       (is (null (cdr (assoc "required" schema :test #'string=)))))))
@@ -489,7 +506,8 @@
   "Test that describe-last-error tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "describe-last-error"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "describe-last-error"))))))
 
 (test describe-last-error-no-error-recorded
   "Test describe-last-error when no error has occurred"
@@ -532,7 +550,8 @@
   "Test that get-backtrace tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "get-backtrace"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "get-backtrace"))))))
 
 (test get-backtrace-no-error-recorded
   "Test get-backtrace when no error has occurred"
@@ -604,7 +623,7 @@
       (is (not (null (cl-mcp-server.session:session-last-error session))))
       ;; Reset session
       (cl-mcp-server.session:reset-session session)
-      ;; Error should be cleared (or nil after reset - depending on implementation)
+      ;; Error should be cleared, or nil after reset.
       ;; Actually, reset-session doesn't clear last-error in current impl
       ;; This test documents expected behavior
       )))

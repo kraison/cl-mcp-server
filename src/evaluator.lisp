@@ -1,5 +1,5 @@
 ;;; src/evaluator.lisp
-;;; ABOUTME: Common Lisp code evaluation with output capture and timeout protection
+;;; ABOUTME: Code evaluation with output capture and timeout protection
 
 (in-package #:cl-mcp-server.evaluator)
 
@@ -46,7 +46,9 @@ warnings encountered, error information, definitions made, and timing info."
   (timing nil :type list)  ; plist with :real-ms :run-ms :gc-ms :bytes-consed
   (package nil :type (or null string)))
 
-(defun make-evaluation-result (&key success-p values stdout stderr warnings error-info structured-error definitions timing package)
+(defun make-evaluation-result (&key success-p values stdout stderr warnings
+                               error-info structured-error definitions
+                               timing package)
   "Create an evaluation result with proper defaults.
 SUCCESS-P indicates whether evaluation completed without errors.
 VALUES is a list of string representations of return values.
@@ -146,13 +148,16 @@ TIMING-PLIST contains :real-ms :run-ms :gc-ms :bytes-consed."
            (,start-bytes (sb-ext:get-bytes-consed)))
        (let ((,result (multiple-value-list (progn ,@body))))
          (values ,result
-                 (list :real-ms (round (* 1000 (- (get-internal-real-time) ,start-real))
+                 (list :real-ms (round (* 1000 (- (get-internal-real-time)
+                                                ,start-real))
                                        internal-time-units-per-second)
-                       :run-ms (round (* 1000 (- (get-internal-run-time) ,start-run))
+                       :run-ms (round (* 1000 (- (get-internal-run-time)
+                                               ,start-run))
                                       internal-time-units-per-second)
                        :gc-ms (round (* 1000 (- sb-ext:*gc-run-time* ,start-gc))
                                      internal-time-units-per-second)
-                       :bytes-consed (- (sb-ext:get-bytes-consed) ,start-bytes)))))))
+                       :bytes-consed (- (sb-ext:get-bytes-consed)
+                                      ,start-bytes)))))))
 
 ;;; ==========================================================================
 ;;; Code Reading
@@ -207,7 +212,8 @@ Provides restarts: ABORT (return nil), USE-VALUE (return specified value)."
                   (error 'evaluation-timeout
                          :timeout-seconds timeout
                          :backtrace (capture-backtrace)
-                         :message (format nil "Evaluation exceeded ~A second~:P" timeout))
+                         :message (format nil "Evaluation exceeded ~A second~:P"
+                                              timeout))
                 (abort ()
                   :report "Abort evaluation and return nil"
                   (setf result-values (list nil)))
@@ -217,7 +223,8 @@ Provides restarts: ABORT (return nil), USE-VALUE (return specified value)."
                   (setf result-values (list value)))))))
         (values-list result-values))))
 
-(defun evaluate-code (code-string &key (timeout *evaluation-timeout*) package (capture-time nil))
+(defun evaluate-code (code-string &key (timeout *evaluation-timeout*) package
+                      (capture-time nil))
   "Evaluate Common Lisp code from CODE-STRING with timeout protection.
 Returns an EVALUATION-RESULT containing:
 - Success status
@@ -230,7 +237,8 @@ Returns an EVALUATION-RESULT containing:
 - Timing information (if CAPTURE-TIME is true)
 - Package name where evaluation occurred
 
-TIMEOUT specifies maximum seconds for evaluation (default: *evaluation-timeout*).
+TIMEOUT is the evaluation limit in seconds (default:
+*evaluation-timeout*).
 Set to NIL to disable timeout.
 PACKAGE specifies the package context (string or package, default: CL-USER).
 CAPTURE-TIME if true, captures timing information.
@@ -250,11 +258,15 @@ Only the values from the last form are returned."
                          (null (find-package "CL-USER"))
                          (string (or (find-package (string-upcase package))
                                      (error 'invalid-params
-                                            :message (format nil "Package ~A not found" package))))
+                                            :message (format nil
+                                                      "Package ~A not found"
+                                                      package))))
                          (package package)
                          (symbol (or (find-package package)
                                      (error 'invalid-params
-                                            :message (format nil "Package ~A not found" package)))))))
+                                            :message (format nil
+                                                      "Package ~A not found"
+                                                      package)))))))
     ;; handler-case must be OUTSIDE handler-bind for the error handler to fire
     ;; before handler-case transfers control
     (handler-case
@@ -262,7 +274,7 @@ Only the values from the last form are returned."
             ((warning (lambda (c)
                         (push (format-warning c) warnings-list)
                         (muffle-warning c)))
-             ;; Phase C: Capture structured error info before handler-case unwinds
+             ;; Capture structured error info before handler-case unwinds.
              (error (lambda (c)
                       (setf structured-error (capture-structured-error c)))))
           (let ((*standard-output* stdout-capture)
@@ -302,7 +314,8 @@ Only the values from the last form are returned."
         ;; concerns are orthogonal: this picks the CORRECT stack, that decides
         ;; whether to SHOW one.
         (setf error-info
-              (let ((*print-backtrace-p* *include-backtrace-in-evaluate-response*))
+              (let ((*print-backtrace-p*
+                     *include-backtrace-in-evaluate-response*))
                 (if structured-error
                     (format-structured-error structured-error)
                     (format-error c))))
@@ -312,8 +325,10 @@ Only the values from the last form are returned."
      :values (when success-p
                (let ((*package* eval-package))
                  (format-values result-values)))
-     :stdout (truncate-output (get-output-stream-string stdout-capture) *max-output-chars*)
-     :stderr (truncate-output (get-output-stream-string stderr-capture) *max-output-chars*)
+     :stdout (truncate-output (get-output-stream-string stdout-capture)
+              *max-output-chars*)
+     :stderr (truncate-output (get-output-stream-string stderr-capture)
+              *max-output-chars*)
      :warnings (nreverse warnings-list)
      :error-info error-info
      :structured-error structured-error
@@ -324,8 +339,10 @@ Only the values from the last form are returned."
 (defun format-timeout-error (condition)
   "Format an EVALUATION-TIMEOUT condition for MCP output."
   (format nil "[TIMEOUT] Evaluation exceeded ~A second~:P~%~
-               ~%Hint: The code may contain an infinite loop or expensive computation.~
-               ~%Consider breaking into smaller operations or using configure-limits ~
+               ~%Hint: The code may contain an infinite loop or an ~
+               expensive computation.~
+               ~%Consider breaking into smaller operations or using ~
+               configure-limits ~
                to increase timeout.~
                ~@[~%~%Backtrace at timeout:~%~A~]"
           (timeout-seconds condition)
@@ -396,7 +413,8 @@ Includes stdout output, warnings, return values, timing, and errors."
           ;; Timing section (if present)
           (let ((timing (result-timing result)))
             (when timing
-              (format s "~%; Timing: ~Dms real, ~Dms run, ~Dms GC, ~:D bytes consed~%"
+              (format s
+               "~%; Timing: ~Dms real, ~Dms run, ~Dms GC, ~:D bytes consed~%"
                       (getf timing :real-ms)
                       (getf timing :run-ms)
                       (getf timing :gc-ms)

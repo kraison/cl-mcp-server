@@ -100,7 +100,8 @@ but never shown on this path."
         (loop for r in restarts
               for i from 0
               do (format s "  ~D: [~A] ~A~%"
-                         i (or (getf r :name) "unnamed") (getf r :description)))))
+                         i (or (getf r :name) "unnamed")
+                         (getf r :description)))))
     (when *print-backtrace-p*
       (format s "~%[Backtrace]~%")
       (write-string (truncate-backtrace (format-backtrace)) s))))
@@ -152,7 +153,8 @@ Returns three values:
                               (when name (string name)))
                       :description (princ-to-string restart))))
 
-(defun parse-backtrace-string (bt-string &optional (max-frames *max-backtrace-depth*))
+(defun parse-backtrace-string (bt-string &optional
+                                 (max-frames *max-backtrace-depth*))
   "Parse a backtrace string into structured frames.
 Returns list of plists with :number, :function.
 When *filter-backtrace-noise-p* is true, MCP-server and eval-plumbing frames
@@ -167,7 +169,8 @@ every frame, the unfiltered list is kept rather than showing nothing."
                       when parsed collect parsed))
            (kept (if *filter-backtrace-noise-p*
                      (remove-if (lambda (frame)
-                                  (%noise-frame-p (or (getf frame :function) "")))
+                                  (%noise-frame-p
+                                   (or (getf frame :function) "")))
                                 all)
                      all))
            (kept (or kept all)))
@@ -234,13 +237,15 @@ Returns a plist with:
                   (getf frame :number)
                   (getf frame :function)))))))
 
-(defun format-backtrace-detail (error-info &key (max-frames *max-backtrace-depth*))
+(defun format-backtrace-detail (error-info
+                                &key (max-frames *max-backtrace-depth*))
   "Format detailed backtrace from stored error info."
   (with-output-to-string (s)
     (let ((bt (getf error-info :backtrace)))
       (if bt
           (progn
-            (format s "Backtrace (~D frame~:P):~%~%" (min (length bt) max-frames))
+            (format s "Backtrace (~D frame~:P):~%~%"
+                    (min (length bt) max-frames))
             (loop for frame in bt
                   for count from 0 below max-frames
                   do (format s "Frame ~D:~%  ~A~%~%"

@@ -44,8 +44,10 @@
 
 (test format-profile-code-result-output
   "format-profile-code-result produces readable output"
-  (let* ((result (cl-mcp-server.profiling-tools:introspect-profile-code "(+ 1 2)"))
-         (formatted (cl-mcp-server.profiling-tools:format-profile-code-result result)))
+  (let* ((result (cl-mcp-server.profiling-tools:introspect-profile-code
+                  "(+ 1 2)"))
+         (formatted (cl-mcp-server.profiling-tools:format-profile-code-result
+                     result)))
     (is (stringp formatted))
     (is (search "Profiling" formatted))))
 
@@ -55,25 +57,31 @@
 
 (test introspect-profile-functions-status
   "introspect-profile-functions returns status"
-  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions :status)))
+  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions
+                 :status)))
     (is (listp result))
     (is (eq :status (getf result :action)))))
 
 (test introspect-profile-functions-reset
   "introspect-profile-functions reset works"
-  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions :reset)))
+  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions
+                 :reset)))
     (is (eq :reset (getf result :action)))))
 
 (test introspect-profile-functions-report-empty
   "introspect-profile-functions report works when empty"
   (cl-mcp-server.profiling-tools:introspect-profile-functions :stop)
-  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions :report)))
+  (let ((result (cl-mcp-server.profiling-tools:introspect-profile-functions
+                 :report)))
     (is (eq :report (getf result :action)))))
 
 (test format-profile-functions-result-status
   "format-profile-functions-result formats status"
-  (let* ((result (cl-mcp-server.profiling-tools:introspect-profile-functions :status))
-         (formatted (cl-mcp-server.profiling-tools:format-profile-functions-result result)))
+  (let* ((result (cl-mcp-server.profiling-tools:introspect-profile-functions
+                  :status))
+         (formatted
+          (cl-mcp-server.profiling-tools:format-profile-functions-result
+           result)))
     (is (stringp formatted))))
 
 ;;; ==========================================================================
@@ -105,7 +113,8 @@
 (test format-memory-report-output
   "format-memory-report produces readable output"
   (let* ((result (cl-mcp-server.profiling-tools:introspect-memory-report))
-         (formatted (cl-mcp-server.profiling-tools:format-memory-report result)))
+         (formatted (cl-mcp-server.profiling-tools:format-memory-report
+                     result)))
     (is (stringp formatted))
     (is (search "GC Statistics" formatted))
     (is (search "Dynamic space" formatted))))
@@ -133,7 +142,9 @@
   "format-allocation-profile-result produces readable output"
   (let* ((result (cl-mcp-server.profiling-tools:introspect-allocation-profile
                   "(list 1 2 3)"))
-         (formatted (cl-mcp-server.profiling-tools:format-allocation-profile-result result)))
+         (formatted
+          (cl-mcp-server.profiling-tools:format-allocation-profile-result
+           result)))
     (is (stringp formatted))
     (is (search "Allocation" formatted))))
 
@@ -145,22 +156,26 @@
   "profile-code tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "profile-code"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "profile-code"))))))
 
 (test profile-functions-tool-registered
   "profile-functions tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "profile-functions"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "profile-functions"))))))
 
 (test memory-report-tool-registered
   "memory-report tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "memory-report"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "memory-report"))))))
 
 (test allocation-profile-tool-registered
   "allocation-profile tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "allocation-profile"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "allocation-profile"))))))

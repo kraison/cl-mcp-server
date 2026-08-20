@@ -25,7 +25,7 @@
   "Symbols interned in packages the resolver must not have to guess.")
 
 (test resolve-bare-lowercase-name
-  "THE BUG: a bare lowercase name must resolve to a symbol in a foreign package."
+  "THE BUG: a bare lowercase name must resolve in a foreign package."
   (is (eq 'cl-mcp-server-tests.widget::sample-widget-feature
           (cl-mcp-server.telos-tools:resolve-feature-name
            "sample-widget-feature" *synthetic-candidates*))))
@@ -46,13 +46,15 @@
   "A package-qualified name resolves through the named package."
   (is (eq 'cl-mcp-server-tests.gadget::duplicated-feature
           (cl-mcp-server.telos-tools:resolve-feature-name
-           "cl-mcp-server-tests.gadget::duplicated-feature" *synthetic-candidates*))))
+           "cl-mcp-server-tests.gadget::duplicated-feature"
+           *synthetic-candidates*))))
 
 (test resolve-single-colon-qualified-name
   "A single colon is accepted as well; agents do not track external-ness."
   (is (eq 'cl-mcp-server-tests.widget::duplicated-feature
           (cl-mcp-server.telos-tools:resolve-feature-name
-           "cl-mcp-server-tests.widget:duplicated-feature" *synthetic-candidates*))))
+           "cl-mcp-server-tests.widget:duplicated-feature"
+           *synthetic-candidates*))))
 
 (test resolve-leading-colon-keyword-spelling
   "A leading colon is the keyword spelling an agent reaches for; accept it."
@@ -77,7 +79,8 @@
   "A symbol that is already a registry key resolves to itself."
   (is (eq 'cl-mcp-server-tests.widget::sample-widget-feature
           (cl-mcp-server.telos-tools:resolve-feature-name
-           'cl-mcp-server-tests.widget::sample-widget-feature *synthetic-candidates*))))
+           'cl-mcp-server-tests.widget::sample-widget-feature
+           *synthetic-candidates*))))
 
 (test resolve-unknown-name-returns-nil
   "An unregistered name resolves to NIL, not to a freshly interned symbol."
@@ -96,7 +99,7 @@
              *synthetic-candidates*))))
 
 (test resolve-ambiguous-name-reports-all-hits
-  "A bare name matching two packages returns the extra hits, never a silent pick."
+  "A bare name matching two packages returns the hits, never a silent pick."
   (multiple-value-bind (key extras)
       (cl-mcp-server.telos-tools:resolve-feature-name
        "duplicated-feature" *synthetic-candidates*)
@@ -296,7 +299,8 @@
   (let ((result (cl-mcp-server.telos-tools:introspect-get-intent
                  "widget-member-class" nil)))
     (is (eq :ok (getf result :status)))
-    (is (eq 'cl-mcp-server-tests.widget::widget-member-class (getf result :name)))
+    (is (eq 'cl-mcp-server-tests.widget::widget-member-class (getf result
+                                                              :name)))
     (is (stringp (getf (getf result :intent) :purpose)))))
 
 (test end-to-end-defclass-i-class-by-qualified-name
@@ -304,7 +308,8 @@
   (let ((result (cl-mcp-server.telos-tools:introspect-get-intent
                  "cl-mcp-server-tests.widget::widget-member-class" nil)))
     (is (eq :ok (getf result :status)))
-    (is (eq 'cl-mcp-server-tests.widget::widget-member-class (getf result :name)))))
+    (is (eq 'cl-mcp-server-tests.widget::widget-member-class (getf result
+                                                              :name)))))
 
 (test end-to-end-defclass-i-class-is-labelled-a-class
   "A class must not be reported as :kind :function."
@@ -443,7 +448,7 @@ that reads as a property of the decision rather than a failure to look."
     (is (search "symbols share it" text))))
 
 (test non-string-feature-argument-does-not-signal
-  "The MCP schema says string, but nothing enforces it; handlers must not raise."
+  "The schema says string, but nothing enforces it; handlers must not raise."
   (let ((server (make-test-server)))
     (finishes (call-test-tool server "telos-feature-decisions"
                               (list (cons "feature" 5))))

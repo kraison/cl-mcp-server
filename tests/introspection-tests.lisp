@@ -28,7 +28,8 @@
 
 (test symbol-type-class
   "symbol-type-info identifies classes"
-  (is (eq :class (cl-mcp-server.introspection:symbol-type-info 'standard-class))))
+  (is (eq :class (cl-mcp-server.introspection:symbol-type-info
+                  'standard-class))))
 
 (test symbol-type-variable
   "symbol-type-info identifies bound variables"
@@ -78,7 +79,8 @@
   "introspect-apropos finds matching symbols"
   (let ((results (cl-mcp-server.introspection:introspect-apropos "mapcar")))
     (is (not (null results)))
-    (is (find "MAPCAR" results :key (lambda (r) (getf r :name)) :test #'string=))))
+    (is (find "MAPCAR" results :key (lambda (r) (getf r :name)) :test
+         #'string=))))
 
 (test introspect-apropos-case-insensitive
   "introspect-apropos is case-insensitive"
@@ -87,7 +89,8 @@
 
 (test introspect-apropos-filters-by-type
   "introspect-apropos filters by type"
-  (let ((results (cl-mcp-server.introspection:introspect-apropos "def" :type :macro)))
+  (let ((results (cl-mcp-server.introspection:introspect-apropos "def" :type
+                  :macro)))
     (is (every (lambda (r) (eq :macro (getf r :type))) results))))
 
 (test introspect-apropos-filters-by-package
@@ -101,7 +104,8 @@
 (test format-apropos-results-includes-count
   "format-apropos-results includes match count"
   (let* ((results (cl-mcp-server.introspection:introspect-apropos "car"))
-         (formatted (cl-mcp-server.introspection:format-apropos-results results "car")))
+         (formatted (cl-mcp-server.introspection:format-apropos-results results
+                     "car")))
     (is (search "Found" formatted))
     (is (search "symbol" formatted))))
 
@@ -174,8 +178,10 @@
 
 (test format-macroexpand-result-shows-both
   "format-macroexpand-result shows original and expanded"
-  (let* ((result (cl-mcp-server.introspection:introspect-macroexpand "(when t 1)"))
-         (formatted (cl-mcp-server.introspection:format-macroexpand-result result)))
+  (let* ((result (cl-mcp-server.introspection:introspect-macroexpand
+                  "(when t 1)"))
+         (formatted (cl-mcp-server.introspection:format-macroexpand-result
+                     result)))
     (is (search "Original:" formatted))
     (is (search "Expanded:" formatted))))
 
@@ -187,31 +193,36 @@
   "describe-symbol tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "describe-symbol"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "describe-symbol"))))))
 
 (test apropos-search-tool-registered
   "apropos-search tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "apropos-search"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "apropos-search"))))))
 
 (test who-calls-tool-registered
   "who-calls tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "who-calls"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "who-calls"))))))
 
 (test who-references-tool-registered
   "who-references tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "who-references"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "who-references"))))))
 
 (test macroexpand-form-tool-registered
   "macroexpand-form tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "macroexpand-form"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "macroexpand-form"))))))
 
 ;;; ==========================================================================
 ;;; Tool Call Tests
@@ -255,7 +266,8 @@
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
     (let ((result (call-test-tool server "describe-symbol"
-                                  '(("name" . "foo") ("package" . "NONEXISTENT-PACKAGE")))))
+                                  '(("name" . "foo") ("package" .
+                                                      "NONEXISTENT-PACKAGE")))))
       (is (search "not found" result)))))
 
 (test describe-symbol-unknown-symbol
@@ -263,7 +275,8 @@
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
     (let ((result (call-test-tool server "describe-symbol"
-                                  '(("name" . "this-symbol-does-not-exist-xyz")))))
+                                  '(("name" .
+                                     "this-symbol-does-not-exist-xyz")))))
       (is (search "not found" result)))))
 
 (test macroexpand-form-invalid-form
@@ -329,14 +342,16 @@
   "format-validate-result shows checkmark for valid code"
   (let* ((result (cl-mcp-server.introspection:introspect-validate-syntax
                   "(+ 1 2)"))
-         (formatted (cl-mcp-server.introspection:format-validate-result result)))
+         (formatted (cl-mcp-server.introspection:format-validate-result
+                     result)))
     (is (search "valid" formatted :test #'char-equal))))
 
 (test format-validate-result-invalid
   "format-validate-result shows error for invalid code"
   (let* ((result (cl-mcp-server.introspection:introspect-validate-syntax
                   "(+ 1 2"))
-         (formatted (cl-mcp-server.introspection:format-validate-result result)))
+         (formatted (cl-mcp-server.introspection:format-validate-result
+                     result)))
     (is (search "invalid" formatted :test #'char-equal))
     (is (search "Error" formatted))))
 
@@ -344,7 +359,8 @@
   "validate-syntax tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "validate-syntax"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "validate-syntax"))))))
 
 (test call-validate-syntax-tool-valid
   "calling validate-syntax tool with valid code"
@@ -399,7 +415,8 @@
   (let ((info (cl-mcp-server.introspection:introspect-class 'test-clos-person)))
     (is (= 2 (length (getf info :direct-slots))))
     (is (find 'name (getf info :direct-slots) :key (lambda (s) (getf s :name))))
-    (is (find 'age (getf info :direct-slots) :key (lambda (s) (getf s :name))))))
+    (is (find 'age (getf info :direct-slots) :key (lambda (s) (getf s
+                                                               :name))))))
 
 (test introspect-class-superclasses
   "introspect-class includes superclass info"
@@ -408,7 +425,8 @@
 
 (test introspect-class-from-string
   "introspect-class works with string designator"
-  (let ((info (cl-mcp-server.introspection:introspect-class "test-clos-person")))
+  (let ((info (cl-mcp-server.introspection:introspect-class
+               "test-clos-person")))
     (is (eq 'test-clos-person (getf info :name)))))
 
 (test format-class-info-includes-name
@@ -428,7 +446,8 @@
 
 (test introspect-find-methods-basic
   "introspect-find-methods finds methods on a class"
-  (let ((results (cl-mcp-server.introspection:introspect-find-methods 'test-clos-person)))
+  (let ((results (cl-mcp-server.introspection:introspect-find-methods
+                  'test-clos-person)))
     (is (listp results))
     ;; Should find accessor methods
     (is (find "TEST-PERSON-NAME" results
@@ -437,14 +456,16 @@
 
 (test introspect-find-methods-includes-specializers
   "introspect-find-methods includes specializer info"
-  (let ((results (cl-mcp-server.introspection:introspect-find-methods 'test-clos-person)))
+  (let ((results (cl-mcp-server.introspection:introspect-find-methods
+                  'test-clos-person)))
     (when results
       (let ((first-method (first results)))
         (is (not (null (getf first-method :specializers))))))))
 
 (test format-find-methods-results-format
   "format-find-methods-results produces readable output"
-  (let* ((results (cl-mcp-server.introspection:introspect-find-methods 'test-clos-person))
+  (let* ((results (cl-mcp-server.introspection:introspect-find-methods
+                   'test-clos-person))
          (formatted (cl-mcp-server.introspection:format-find-methods-results
                      results 'test-clos-person)))
     (is (stringp formatted))
@@ -455,13 +476,15 @@
   "class-info tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "class-info"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "class-info"))))))
 
 (test find-methods-tool-registered
   "find-methods tool is registered"
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
-    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server) "find-methods"))))))
+    (is (not (null (cl-mcp.tools:get-tool (test-server-registry server)
+                    "find-methods"))))))
 
 ;; Tool Call Tests for Phase D
 (test call-class-info-tool
@@ -469,7 +492,8 @@
   (multiple-value-bind (server session) (make-test-server)
     (declare (ignore session))
     (let ((result (call-test-tool server "class-info"
-                                  '(("class" . "standard-class") ("package" . "CL")))))
+                                  '(("class" . "standard-class") ("package" .
+                                                                  "CL")))))
       (is (stringp result))
       (is (search "STANDARD-CLASS" result)))))
 
