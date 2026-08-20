@@ -149,6 +149,6 @@ To return to the default package:
 
 ## See Also
 
-- [Session State Contract](../../canon/features/session-management/contracts/session-state.md) - How package state persists
+- [Why Persistent Sessions?](../explanation/persistent-sessions.md) - How package state persists
 - [Common Lisp HyperSpec: Packages](http://www.lispworks.com/documentation/HyperSpec/Body/11_.htm) - Complete package documentation
 - [Tutorial: First REPL Session](../tutorials/01-first-session.md) - Basic evaluation patterns

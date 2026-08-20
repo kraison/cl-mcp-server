@@ -1,7 +1,5 @@
 # CLOS Intelligence Tools Reference
 
-<!-- Generated from: canon/features/clos-intelligence/contracts/*.md -->
-
 Tools for inspecting and understanding Common Lisp Object System (CLOS) classes.
 
 ## Overview
@@ -228,4 +226,4 @@ This means:
 
 - [describe-symbol](introspection-tools.md#describe-symbol) - Get details on accessor functions
 - [apropos-search](introspection-tools.md#apropos-search) - Find classes by name
-- [CLOS Tutorial](../tutorials/exploring-clos.md) - Learn CLOS introspection step-by-step
+- [How to Explore Code](../how-to/explore-code.md) - Using the introspection tools in practice

@@ -218,6 +218,6 @@ Quicklisp uses distributions (snapshots of all libraries at a point in time):
 
 ## See Also
 
-- [Future: load-system tool](../../canon/features/session-management/contracts/session-state.md#load-system) - Planned MCP tool for loading systems
+- [`load-system` and `quickload`](../../.claude/skills/integration/references/tools-reference.md) - Tool schemas
 - [Quicklisp Documentation](https://www.quicklisp.org/beta/) - Official Quicklisp docs
-- [Session State Contract](../../canon/features/session-management/contracts/session-state.md) - What persists across evaluations
+- [Why Persistent Sessions?](../explanation/persistent-sessions.md) - What persists across evaluations

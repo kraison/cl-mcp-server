@@ -423,7 +423,6 @@ Planned improvements:
 ## See Also
 
 - [evaluate-lisp Tool Reference](evaluate-lisp.md) - Primary tool documentation
-- [Initialization Contract](../../canon/features/mcp-protocol/contracts/initialization.md) - Formal specification
-- [Transport Contract](../../canon/features/mcp-protocol/contracts/transport.md) - stdio transport details
+- [cl-mcp](https://github.com/kraison/cl-mcp) - The library implementing this protocol layer
 - [JSON-RPC 2.0 Spec](https://www.jsonrpc.org/specification) - Base protocol
 - [MCP Documentation](https://modelcontextprotocol.io/) - Official MCP docs

@@ -327,7 +327,6 @@ Test your error handling:
 
 ## See Also
 
-- [Evaluation Error Scenarios](../../canon/features/error-handling/scenarios/evaluation-errors.md) - All error types handled by server
-- [Condition Report Contract](../../canon/features/error-handling/contracts/condition-report.md) - How errors are formatted
+- [The Lisp Condition System](../explanation/condition-system.md) - How conditions are captured and formatted
 - [CLtL2: Conditions](http://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node312.html) - Complete condition system reference
 - [Practical Common Lisp: Beyond Exception Handling](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) - Excellent tutorial

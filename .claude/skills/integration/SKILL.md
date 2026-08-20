@@ -1,14 +1,14 @@
 ---
 name: cl-mcp-server-integration
 description: For Claude agents using the cl-mcp-server REPL tools. Tool mental model, usage patterns, pitfalls.
-version: 0.3.1
+version: 0.4.0
 author: quasi
 type: integration
 ---
 
 # cl-mcp-server — Integration Skill
 
-A running SBCL process with a persistent REPL exposed as 45 MCP tools. Definitions accumulate across calls — `defun` in call 1 is callable in call 2.
+A running SBCL process with a persistent REPL exposed as 63 MCP tools. Definitions accumulate across calls — `defun` in call 1 is callable in call 2.
 
 ## Rule 0: don't guess — ask the image
 
@@ -224,4 +224,4 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 
 - **All 63 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
 - **Architecture**: `docs/explanation/architecture.md`
-- **Canon specifications**: `canon/features/`
+- **Remote services**: `docs/reference/remote-swank.md`

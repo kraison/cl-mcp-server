@@ -1,14 +1,14 @@
 ---
 name: cl-mcp-server-dev
 description: For contributors working ON cl-mcp-server. Build/test commands, architecture, coding conventions, rules.
-version: 0.3.1
+version: 0.4.0
 author: quasi
 type: dev
 ---
 
 # cl-mcp-server — Dev Skill
 
-MCP server providing 36 Common Lisp REPL tools to Claude. Thin application layer over the `cl-mcp` protocol library.
+MCP server providing 63 Common Lisp REPL tools to Claude. Thin application layer over the `cl-mcp` protocol library.
 
 ## Quick Reference
 
@@ -36,6 +36,8 @@ digraph {
   rankdir=LR
   "cl-mcp-server" -> "cl-mcp" [label="protocol"]
   "cl-mcp-server" -> "alexandria"
+  "cl-mcp-server" -> "bordeaux-threads"
+  "cl-mcp-server" -> "usocket" [label="SWANK client"]
   "cl-mcp-server" -> "trivial-backtrace"
   "cl-mcp" -> "yason"
   "cl-mcp" -> "opsis/conditions"
@@ -44,11 +46,11 @@ digraph {
 
 **What cl-mcp owns**: JSON-RPC 2.0 framing, stdio transport, MCP handshake, per-server tool registry, error recovery.
 
-**What cl-mcp-server owns**: Session state, code evaluation, 36 REPL tool handlers.
+**What cl-mcp-server owns**: Session state, code evaluation, 63 REPL tool handlers.
 
 `start` reduces to 3 calls:
 ```lisp
-(cl-mcp:make-server :name "cl-mcp-server" :version "0.3.0")
+(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.0")
 (cl-mcp-server.tools:define-builtin-tools server session)
 (cl-mcp:run-server server)
 ```
@@ -75,7 +77,6 @@ digraph {
 | `cl-mcp-server.asd` | ASDF system (depends on `cl-mcp`) |
 | `src/` | Implementation |
 | `tests/` | FiveAM test suites |
-| `canon/` | Formal Canon specifications |
 | `docs/` | User and contributor docs |
 | `run-server.lisp` | Script entry point |
 | `../cl-mcp/` | External protocol library |
@@ -125,6 +126,14 @@ Note the tension with RULE-001: handlers must not raise, which tempts a blanket
 
 ## Coding Conventions
 
+- **80 columns, hard.** Code, comments, docstrings and strings alike.
+  `python3 tools/check-line-length.py src/*.lisp tests/*.lisp *.asd` must
+  report 0. To wrap a long string without changing it, use FORMAT's
+  `~<newline>` continuation — it eats the newline *and the following
+  indentation*, so never break immediately before text whose leading spaces
+  matter, and double any literal `~`. A bare (non-FORMAT) string literal
+  cannot use it; split with `concatenate` instead.
+- Spaces only, never tabs
 - Every file begins with `;;; ABOUTME: ...` comment
 - Naming: `*earmuffs*` for specials, `+plus+` for constants, `-p` predicates, `make-` constructors
 - Package names: lowercase hyphenated (`cl-mcp-server.evaluator`)
@@ -142,7 +151,8 @@ Test helpers in `tests/packages.lisp`:
 
 Test suites: `error-format-tests`, `session-tests`, `evaluator-tests`, `tools-tests`,
 `introspection-tests`, `asdf-tools-tests`, `profiling-tools-tests`, `paren-tools-tests`,
-`telos-tools-tests`, `integration-tests`.
+`file-tools-tests`, `hyperspec-tests`, `quicklisp-tools-tests`, `telos-tools-tests`,
+`remote-config-tests`, `remote-tests`, `remote-inspect-tests`, `integration-tests`.
 
 **Test-only dependency on `telos`.** `cl-mcp-server` itself never requires
 telos, but `cl-mcp-server/tests` does. Telos keys its registries by symbols
@@ -171,7 +181,7 @@ When Lisp MCP tools are available (`mcp__lisp__evaluate-lisp`):
 
 ## References
 
-- **Protocol specs**: `canon/INDEX.md` → feature contracts and invariants
+- **Protocol specs**: `docs/reference/mcp-protocol.md` → wire protocol and dispatch
 - **Architecture**: `docs/explanation/architecture.md`
 - **cl-mcp API**: `../cl-mcp/CLAUDE.md`
 - **Tool catalog**: `.claude/skills/integration/references/tools-reference.md`

@@ -78,7 +78,13 @@ Use the `superpowers:executing-plans` skill for automated execution with review 
 
 ## Spec Reference
 
-All plans reference specifications in `canon/`:
+> **Historical note.** These plans are kept as a record of how the project was
+> built; they are not current documentation. They reference a `canon/`
+> specification directory that was removed in `add4985` (2026-07-10). The
+> current authority on tool behaviour is
+> `.claude/skills/integration/references/tools-reference.md`.
+
+All plans reference specifications in the former `canon/`:
 - `canon/core/contracts/shared-types.md` - JSON-RPC types
 - `canon/features/mcp-protocol/` - Protocol contracts and scenarios
 - `canon/features/code-evaluator/` - Evaluation contracts and scenarios

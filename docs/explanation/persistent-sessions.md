@@ -387,7 +387,6 @@ The trade-off is that you must be aware of accumulated state, but this is the sa
 
 ## See Also
 
-- [Session State Contract](../../canon/features/session-management/contracts/session-state.md) - What persists and what doesn't (formal specification)
 - [How to Switch Packages](../how-to/switch-packages.md) - Managing package context
 - [Architecture Explanation](architecture.md) - How the server maintains state internally
-- [State Persistence Scenario](../../canon/features/session-management/scenarios/state-persistence.md) - Concrete examples
+- [Your First REPL Session](../tutorials/01-first-session.md) - Concrete examples

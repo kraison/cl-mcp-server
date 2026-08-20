@@ -207,4 +207,4 @@ Expanded:
 
 - [Introspection Tools Reference](../reference/introspection-tools.md) - Complete tool documentation
 - [CLOS Tools](../reference/clos-tools.md) - For inspecting classes
-- [Tutorial: Exploring CLOS](../tutorials/exploring-clos.md) - Hands-on CLOS exploration
+- [CLOS Tools Reference](../reference/clos-tools.md) - `class-info`, `find-methods`, `who-specializes`

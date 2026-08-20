@@ -1,7 +1,5 @@
 # Profiling and Performance Tools Reference
 
-<!-- Generated from: canon/features/profiling/contracts/*.md -->
-
 Tools for analyzing performance, identifying bottlenecks, and optimizing Common Lisp code.
 
 ## Overview
@@ -250,6 +248,5 @@ Code result: <very large number>
 
 ## See Also
 
-- [time-execution](enhanced-evaluation.md#time-execution) - Simple execution timing (no profiling)
+- [`time-execution`](../../.claude/skills/integration/references/tools-reference.md) - Simple execution timing (no profiling)
 - [evaluate-lisp](evaluate-lisp.md) - Execute code without profiling
-- [How to: Optimize Performance](../how-to/optimize-performance.md) - Practical optimization guide

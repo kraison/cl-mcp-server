@@ -1,7 +1,5 @@
 # ASDF and Quicklisp Tools Reference
 
-<!-- Generated from: canon/features/asdf-integration/contracts/*.md -->
-
 Tools for loading and managing Common Lisp systems and libraries.
 
 ## Overview

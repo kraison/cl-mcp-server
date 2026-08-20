@@ -35,7 +35,7 @@ CL-MCP-Server is a bridge between Claude and a running Common Lisp environment. 
 ┌─────────────────────────────────────────┐
 │     cl-mcp-server  (this project)       │
 │  ┌──────────────────────────────────┐   │
-│  │  Tool Layer (28+ REPL tools)     │   │
+│  │  Tool Layer (63 REPL tools)      │   │
 │  │  • Registered via cl-mcp:        │   │
 │  │    register-tool                 │   │
 │  └──────────────────────────────────┘   │
@@ -65,7 +65,7 @@ CL-MCP-Server is a bridge between Claude and a running Common Lisp environment. 
 
 ```lisp
 (defun start ()
-  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.3.0"))
+  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.4.0"))
         (session (make-session)))
     (with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)

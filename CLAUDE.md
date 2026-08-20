@@ -43,4 +43,4 @@ Invoke the dev skill: `.claude/skills/dev/SKILL.md`
 Invoke the integration skill: `.claude/skills/integration/SKILL.md`
 
 ## Dependencies
-@../opsis/claude.md
+@~/quicklisp/local-projects/opsis/CLAUDE.md

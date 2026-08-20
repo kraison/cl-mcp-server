@@ -279,6 +279,19 @@ disk.
 Returns `isError: true` if the content is invalid (nothing written) or if
 compilation fails.
 
+### match-paren
+
+Find the parenthesis matching the one at a cursor position, with surrounding
+context. Use it to navigate a deeply nested form instead of counting by eye.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | yes | Lisp source text |
+| `line` | integer | yes | 1-based line of the paren |
+| `column` | integer | yes | 0-based column of the paren |
+
+Note the asymmetry: `line` is 1-based, `column` is 0-based.
+
 ---
 
 ## Code Introspection

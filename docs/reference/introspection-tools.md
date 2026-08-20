@@ -1,7 +1,5 @@
 # Introspection Tools Reference
 
-<!-- Generated from: canon/features/introspection/contracts/*.md -->
-
 Tools for exploring, understanding, and analyzing Common Lisp code without executing it.
 
 ## Overview
@@ -466,5 +464,5 @@ Expanded:
 ## See Also
 
 - [evaluate-lisp Tool](evaluate-lisp.md) - Execute Common Lisp code
-- [compile-form Tool](enhanced-evaluation.md#compile-form) - Compile code without executing
+- [`compile-form`](../../.claude/skills/integration/references/tools-reference.md) - Compile code without executing
 - [How to: Explore Code](../how-to/explore-code.md) - Practical introspection guide

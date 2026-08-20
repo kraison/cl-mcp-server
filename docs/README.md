@@ -61,7 +61,8 @@ This documentation follows the [Diátaxis framework](https://diataxis.fr/) for c
 | Learn interactively | [First REPL Session Tutorial](tutorials/01-first-session.md) |
 | Understand the architecture | [Architecture Explanation](explanation/architecture.md) |
 | Look up API details | [evaluate-lisp Reference](reference/evaluate-lisp.md) |
-| See the formal specification | `../canon/` directory |
+| Look up any of the 63 tools | [Tool Reference](../.claude/skills/integration/references/tools-reference.md) |
+| Work against a running service | [Remote SWANK](reference/remote-swank.md) |
 
 ## For Different Audiences
 
@@ -79,18 +80,18 @@ This documentation follows the [Diátaxis framework](https://diataxis.fr/) for c
 **Goal**: Modify or extend the CL-MCP-Server codebase.
 
 **Path**:
-1. Read `../AGENT.md` - Contributor instructions
-2. Read `../canon/INDEX.md` - Formal specifications
-3. [Architecture Explanation](explanation/architecture.md) - Understand the design
+1. Read [`.claude/skills/dev/SKILL.md`](../.claude/skills/dev/SKILL.md) - Build and test commands, coding rules, invariants
+2. [Architecture Explanation](explanation/architecture.md) - Understand the design
+3. [MCP Protocol Details](reference/mcp-protocol.md) - The wire format the server speaks
 
 ### For External Agents
 
 **Goal**: Integrate with CL-MCP-Server programmatically.
 
 **Path**:
-- Read formal specifications in `../canon/features/` (PUBLIC artifacts only)
-- See `../canon/features/mcp-protocol/` for protocol details
-- See `../canon/features/code-evaluator/contracts/evaluate-lisp-tool.md` for tool spec
+- Read [`.claude/skills/integration/SKILL.md`](../.claude/skills/integration/SKILL.md) - Tool mental model and pitfalls
+- All 63 tools with full JSON schemas: [tools-reference.md](../.claude/skills/integration/references/tools-reference.md)
+- [MCP Protocol Details](reference/mcp-protocol.md) - JSON-RPC wire protocol
 
 ## What is MCP?
 
@@ -216,9 +217,9 @@ Operation was (/ 1 0).
 
 Interested in contributing?
 
-1. Read `../AGENT.md` for contributor guidelines
-2. Review `../canon/` for formal specifications
-3. See open issues in the issue tracker
+1. Read [`.claude/skills/dev/SKILL.md`](../.claude/skills/dev/SKILL.md) for contributor guidelines
+2. Review the [Architecture Explanation](explanation/architecture.md)
+3. Contribute design documents rather than code — see the README's Contributing section
 
 ## License
 

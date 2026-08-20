@@ -432,6 +432,6 @@ If you're still stuck:
 ## See Also
 
 - [Error Handling Guide](handle-errors-gracefully.md) - Writing robust error-handling code
-- [Session State Contract](../../canon/features/session-management/contracts/session-state.md) - What persists and what doesn't
+- [Why Persistent Sessions?](../explanation/persistent-sessions.md) - What persists and what doesn't
 - [Architecture Explanation](../explanation/architecture.md) - How the server works internally
 - [Quickstart](../quickstart.md) - Setting up from scratch

@@ -506,7 +506,7 @@ This tool is invoked via the MCP `tools/call` method:
 - **Quickstart**: [Get Running in 5 Minutes](../quickstart.md)
 - **Tutorial**: [Your First REPL Session](../tutorials/01-first-session.md)
 - **Explanation**: [How It Works](../explanation/architecture.md)
-- **Canon**: For formal specification, see `canon/features/code-evaluator/contracts/evaluate-lisp-tool.md`
+- **Schema**: [`tools-reference.md`](../../.claude/skills/integration/references/tools-reference.md)
 
 ---
 

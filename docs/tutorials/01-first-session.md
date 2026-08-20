@@ -181,8 +181,8 @@ Now let's use all our functions together:
 
 ## Next Steps
 
-- **Learn error handling**: See [Tutorial: Handling Errors](02-error-handling.md)
-- **Work with output**: See [Tutorial: Capturing Output](03-output-capture.md)
+- **Learn error handling**: See [How-To: Handle Errors Gracefully](../how-to/handle-errors-gracefully.md)
+- **Understand conditions**: See [The Lisp Condition System](../explanation/condition-system.md)
 - **Understand packages**: See [How-To: Switch Packages](../how-to/switch-packages.md)
 
 ## Try It Yourself

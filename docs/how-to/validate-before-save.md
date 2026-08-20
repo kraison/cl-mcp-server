@@ -171,5 +171,5 @@ Line hints are approximate. The actual error may be earlier in the file where th
 
 ## See Also
 
-- [validate-syntax-tool contract](../../canon/features/introspection/contracts/validate-syntax-tool.md)
-- [syntax-validation scenarios](../../canon/features/introspection/scenarios/syntax-validation.md)
+- [`validate-syntax` and `write-lisp-file` schemas](../../.claude/skills/integration/references/tools-reference.md)
+- [`match-paren`](../../.claude/skills/integration/references/tools-reference.md) - Locate an unbalanced paren before saving

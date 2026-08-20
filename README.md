@@ -43,14 +43,13 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 ### For Developers
 
 - **Standard Protocol**: Uses MCP and JSON-RPC 2.0 for interoperability
-- **Formally Specified**: Complete Canon specification in `canon/` directory
-- **Well-Tested**: Comprehensive test suite covering protocol, evaluation, and error handling
+- **Well-Tested**: 1,300+ assertions covering protocol, evaluation, remote safety, and error handling
 - **Extensible**: Clean architecture supports adding new tools and capabilities
 
 ### For AI Agents
 
-- **Formal Contracts**: Machine-readable specifications in `canon/features/`
-- **Predictable Behavior**: Documented invariants and properties
+- **Tool Catalog**: Every tool's schema in [`tools-reference.md`](.claude/skills/integration/references/tools-reference.md)
+- **Predictable Behavior**: Documented invariants and properties (see the [dev skill](.claude/skills/dev/SKILL.md))
 - **JSON Schema**: Structured request/response formats
 - **Standard Transport**: stdio-based communication
 
@@ -164,14 +163,13 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 ### For Contributors
 
 - **[Dev Skill](.claude/skills/dev/SKILL.md)** - Contributor guidelines, build commands, code conventions
-- **[canon/INDEX.md](canon/INDEX.md)** - Navigate formal specifications
 - **[Architecture](docs/explanation/architecture.md)** - System design and rationale
 
 ### For External Agents
 
-- **[canon/features/](canon/features/)** - Formal API specifications
-- **[canon/core/foundation/vocabulary.md](canon/core/foundation/vocabulary.md)** - Domain model
-- **[MCP Protocol Contracts](canon/features/mcp-protocol/contracts/)** - Protocol details
+- **[Integration Skill](.claude/skills/integration/SKILL.md)** - Tool mental model, usage patterns, pitfalls
+- **[Tool Reference](.claude/skills/integration/references/tools-reference.md)** - All 63 tools with full schemas
+- **[MCP Protocol](docs/reference/mcp-protocol.md)** - JSON-RPC wire protocol details
 
 ## Features
 
@@ -314,7 +312,7 @@ See [Tools Reference](docs/reference/) for detailed documentation.
 ┌──────────────▼───────────────────────┐
 │         CL-MCP-Server                │
 │  ┌────────────────────────────────┐  │
-│  │  Tool Layer (37 REPL tools)    │  │
+│  │  Tool Layer (63 REPL tools)    │  │
 │  └──────────────┬─────────────────┘  │
 │                 │                    │
 │  ┌──────────────▼─────────────────┐  │
@@ -341,7 +339,7 @@ sbcl --load cl-mcp-server.asd \
 
 ## Project Status
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 
 **Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
@@ -364,13 +362,40 @@ MIT License
 
 ## Changelog
 
-### Unreleased
+### Version 0.4.0 (2026-08-20)
 
-**MCP Token Usage Optimization**
+**Live Services, Restarts, and Runtime Inspection** — 36 to 63 tools.
 
+**Remote SWANK (9 tools)**: read-only access to a running Lisp service
+- `remote-connect` / `remote-eval` / `remote-targets` / `remote-disconnect` — named targets, so a port cannot be typo'd into production
+- Forms are classified by textual inspection into observe / read / redefine / state / lifecycle tiers, and refused unless the target's mode permits the tier
+- `remote-ledger` records every form sent, refusals included, with timestamps
+- `remote-inspect` / `remote-inspect-clear` — inspect a value on the service, as a transcript retaining nothing or via weak, navigable handles
+- `remote-arm` / `remote-disarm` — permit mutation on a target, then revoke it. Refused unless the target is allowlisted in `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which live outside the session on purpose
+- Print limits are bound *in the remote image*, so a large value cannot flood or stall the service
+- See [Remote SWANK](docs/reference/remote-swank.md)
+
+**Live conditions and restarts (4 tools)**: `evaluate-with-restarts`, `invoke-restart`, `list-suspensions`, `abandon-suspension` — suspend a signalled condition instead of unwinding, then choose a restart; `CONTINUE` resumes the computation in place
+
+**Runtime inspection (5 tools)**: `inspect-object`, `trace-call`, `macrostep`, `who-specializes`, `disassemble-function`
+
+**Quicklisp introspection (4 tools)**: `quicklisp-dry-run`, `quicklisp-system-info`, `quicklisp-who-depends-on`, `quicklisp-dist-status` — all read-only
+
+**Also new (5 tools)**: `write-lisp-file` (atomic validate → write → compile; never leaves a malformed file on disk), `match-paren`, `describe-generic-function`, `hyperspec-lookup`, `find-definition-source`
+
+**Token usage**
 - `evaluate-lisp` suppresses return values when warnings are present, avoiding large value echoes in diagnostic responses
 - Immediate error and timeout responses are concise by default; detailed backtraces remain available through `describe-last-error` and `get-backtrace`
-- README tool catalog updated to list all 37 currently registered tools
+- Backtraces drop MCP server frames and report available restarts
+
+**Housekeeping**
+- The `canon/` specification directory was removed; the tool catalog in `.claude/skills/integration/references/tools-reference.md` is now the authority on tool schemas
+- The 80-column limit now holds across the whole tree — source, tests,
+  the `.asd` and the launcher (`tools/check-line-length.py` reports 0).
+  Tool metadata and the embedded usage guide were verified byte-identical
+  through the reformat; `src/hyperspec-data.lisp` and its generator emit a
+  flat alist, since a 63-character CLHS name cannot fit the old
+  one-`setf`-per-line shape at any indentation
 
 ### Version 0.3.1 (2026-02-25)
 
@@ -393,7 +418,7 @@ MIT License
   - `telos-intent-chain` - Trace intent hierarchy from code to root feature
   - `telos-feature-members` - List all functions and classes in a feature
 
-**Total at release: 28 tools** (up from 23 in v0.2.0; current releases document 37 registered tools in the Available Tools section)
+**Total at release: 28 tools** (up from 23 in v0.2.0)
 
 **Features:**
 - Graceful degradation when telos is not loaded
