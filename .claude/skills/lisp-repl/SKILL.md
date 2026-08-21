@@ -1,7 +1,7 @@
 ---
 name: lisp-repl
 description: Use when writing, running, debugging or exploring Common Lisp — a persistent SBCL REPL is available through the cl-mcp tools, so code can be evaluated and inspected in a live image instead of reasoned about from source. Prefer it over shelling out to sbcl. Triggers on writing or fixing .lisp/.asd files, a CL error or backtrace to diagnose, "does this compile", "what does this function do", checking a symbol's arglist or a class's slots, loading an ASDF/Quicklisp system, or profiling Lisp code.
-version: 0.4.3
+version: 0.4.4
 author: quasi
 type: integration
 ---

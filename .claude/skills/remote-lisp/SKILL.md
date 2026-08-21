@@ -1,7 +1,7 @@
 ---
 name: remote-lisp
 description: Use when a running Common Lisp service needs inspecting, debugging or fixing in place — a production or staging image, a server that is misbehaving, a process whose state you cannot reproduce locally. Attaches to it over SWANK: evaluate read-only forms, inspect live values, and (only for targets allowlisted outside the session) redefine code in the running image. Triggers on "debug the live server", "what is production doing", "attach to the running Lisp", "hot-fix without a restart".
-version: 0.4.3
+version: 0.4.4
 author: quasi
 type: integration
 ---

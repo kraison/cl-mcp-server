@@ -340,7 +340,7 @@ sbcl --load cl-mcp-server.asd \
 
 ## Project Status
 
-**Version**: 0.4.3
+**Version**: 0.4.4
 
 **Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
@@ -362,6 +362,29 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Version 0.4.4 (2026-08-21)
+
+**Two tests that reported on the image rather than the code** (#4, #5)
+
+`test-op` called `fiveam:run-all-tests`, which is image-global: in a shared
+REPL it also ran cl-mcp's and any other loaded system's suites. This
+system's `test-op` could fail on someone else's test, and counted their
+passes as its own. It now runs `run!` on the named suite — with an explicit
+check that the symbol resolved, because `run!` returns T for a suite it
+cannot find, which is green CI over zero tests.
+
+`timeout-tests` asserted the live values of `*evaluation-timeout*` and
+`*max-output-chars*`, which `configure-limits` mutates — so any session that
+had raised the timeout turned the suite red. The shipped defaults are now
+named constants (`+default-evaluation-timeout+`, `+default-max-output-chars+`,
+`+default-max-value-chars+`), the specials are initialised from them, and
+the tests assert the constants.
+
+Note the check total still is not a fixed number: the same 594 tests produce
+a few dozen more checks under `asdf:test-system` than under a direct `run!`,
+because some tests make a variable number of assertions depending on ambient
+image state. A failure is signal; a count that moved is not.
 
 ### Version 0.4.3 (2026-08-21)
 

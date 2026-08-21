@@ -7,14 +7,22 @@
 ;;; Timeout Configuration
 ;;; ==========================================================================
 
-(defparameter *evaluation-timeout* 30
+;;; The shipped defaults are named, so a test can pin them without reading
+;;; the specials -- configure-limits mutates those, which made the suite
+;;; report on the session rather than the code. See issue #5.
+
+(defconstant +default-evaluation-timeout+ 30)
+(defconstant +default-max-output-chars+ 100000)
+(defconstant +default-max-value-chars+ 2000)
+
+(defparameter *evaluation-timeout* +default-evaluation-timeout+
   "Default timeout for code evaluation in seconds.
 Set to NIL to disable timeout (not recommended for untrusted code).")
 
-(defparameter *max-output-chars* 100000
+(defparameter *max-output-chars* +default-max-output-chars+
   "Maximum characters to capture from stdout/stderr before truncation.")
 
-(defparameter *max-value-chars* 2000
+(defparameter *max-value-chars* +default-max-value-chars+
   "Maximum characters of a single printed return value before truncation.
 
 Guards the one thing worth guarding -- an enormous value echoed back for no

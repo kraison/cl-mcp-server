@@ -5,7 +5,7 @@
   :description "Model Context Protocol server for Common Lisp evaluation"
   :author "Abhijit Rao <quasi@quasilabs.com>"
   :license "MIT"
-  :version "0.4.3"
+  :version "0.4.4"
   :serial t
   :depends-on (#:cl-mcp            ; MCP protocol framework
                #:alexandria        ; Utilities
@@ -61,10 +61,16 @@
                  (:file "remote-tests")
                  (:file "remote-inspect-tests")
                  (:file "integration-tests"))))
-  ;; NB: the suite must be named by the symbol interned in the test package,
-  ;; not the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol
-  ;; identity, so the keyword silently matches nothing and run! reports
-  ;; "Didn't run anything...huh?" while exiting 0 -- green CI over 0 tests.
+  ;; Run the named suite, NOT fiveam:run-all-tests. run-all-tests is
+  ;; image-global: in a shared REPL it also runs cl-mcp's and any other
+  ;; loaded system's suites, so this system's test-op could fail on someone
+  ;; else's test and reported their passes as ours. See issue #4.
+  ;;
+  ;; The suite must be named by the symbol interned in the test package, not
+  ;; the keyword :cl-mcp-server-tests. FiveAM looks suites up by symbol
+  ;; identity, so a name that matches nothing runs nothing -- and run!
+  ;; returns T for a suite it cannot find, which is green CI over 0 tests.
+  ;; Hence the explicit NULL check below rather than trusting the result.
   ;;
   ;; The telos suites live in a separate system, pulled in as a real
   ;; dependency of THIS system's test-op -- but only when telos is actually
@@ -83,9 +89,13 @@
                         runs.~%")
                nil))
   :perform (asdf:test-op (o c)
-             (unless (uiop:symbol-call :fiveam :run-all-tests
-                                       :summary :end)
-               (error "cl-mcp-server test suite failed"))))
+             (let ((suite (find-symbol "CL-MCP-SERVER-TESTS"
+                                       "CL-MCP-SERVER-TESTS")))
+               (unless suite
+                 (error "cl-mcp-server: test suite symbol not found; the ~
+                         tests did not load"))
+               (unless (uiop:symbol-call :fiveam :run! suite)
+                 (error "cl-mcp-server test suite failed")))))
 
 (asdf:defsystem #:cl-mcp-server/tests-telos
   :description "Telos-dependent tests, separated so a missing telos cannot

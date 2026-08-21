@@ -404,13 +404,27 @@
 
 (in-suite timeout-tests)
 
-(test default-timeout-value
-  "Test that default timeout is 30 seconds"
-  (is (= 30 cl-mcp-server.evaluator:*evaluation-timeout*)))
+(test shipped-limit-defaults
+  "The documented defaults, pinned.
 
-(test default-max-output-value
-  "Test that default max output is 100000 characters"
-  (is (= 100000 cl-mcp-server.evaluator:*max-output-chars*)))
+Reads the constants, not the specials: configure-limits mutates the
+specials, so asserting on them made this suite report on whatever the
+current session had configured rather than on the code. See issue #5."
+  (is (= 30 cl-mcp-server.evaluator:+default-evaluation-timeout+))
+  (is (= 100000 cl-mcp-server.evaluator:+default-max-output-chars+))
+  (is (= 2000 cl-mcp-server.evaluator:+default-max-value-chars+)))
+
+(test limits-are-independent-of-the-ambient-session
+  "A session that changed the limits must not change what the suite reports"
+  (let ((cl-mcp-server.evaluator:*evaluation-timeout* 180)
+        (cl-mcp-server.evaluator:*max-output-chars* 7)
+        (cl-mcp-server.evaluator:*max-value-chars* 7))
+    (is (= 30 cl-mcp-server.evaluator:+default-evaluation-timeout+))
+    (is (= 100000 cl-mcp-server.evaluator:+default-max-output-chars+))
+    (is (= 2000 cl-mcp-server.evaluator:+default-max-value-chars+))
+    ;; and an explicit timeout still overrides whatever is ambient
+    (is-true (cl-mcp-server.evaluator:result-success-p
+              (cl-mcp-server.evaluator:evaluate-code "(+ 1 2)" :timeout 5)))))
 
 (test fast-code-succeeds-with-timeout
   "Test that fast code completes within timeout"

@@ -77,7 +77,11 @@
    #:result-package
    #:format-result
    #:format-timing-result
-   ;; Timeout configuration
+   ;; Limits: the specials are mutable (configure-limits), the constants
+   ;; record what the shipped defaults are.
+   #:+default-evaluation-timeout+
+   #:+default-max-output-chars+
+   #:+default-max-value-chars+
    #:*evaluation-timeout*
    #:*max-output-chars*
    #:*max-value-chars*

@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-dev
 description: Use when changing cl-mcp-server itself — adding or editing a tool, touching src/ or tests/, running its suite, or cutting a release. Covers build and test commands, the package layout, the rules a tool handler must obey, and the 80-column convention. Not for merely *using* the REPL tools; that is the lisp-repl skill.
-version: 0.4.3
+version: 0.4.4
 author: quasi
 type: dev
 ---
@@ -50,7 +50,7 @@ digraph {
 
 `start` reduces to 3 calls:
 ```lisp
-(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.3")
+(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.4")
 (cl-mcp-server.tools:define-builtin-tools server session)
 (cl-mcp:run-server server)
 ```
@@ -167,17 +167,23 @@ skipped. The choice is made when the `.asd` is *read*, so the telos suites
 are a real `:in-order-to` dependency rather than a load inside `perform` —
 ASDF deprecates the latter as recursive `OPERATE`.
 
-Expect roughly these counts:
+### Do not trust the check count
 
-- core suite alone, telos absent — **1181 checks**
-- `run!` on `cl-mcp-server-tests` with telos — **1288 checks**
-- `asdf:test-system` (which uses `run-all-tests`, so it also sweeps suites
-  outside that parent, such as `timeout-tests`) — **~1320 checks**
+`test-op` runs `run!` on the named `cl-mcp-server-tests` suite. It used to
+call `run-all-tests`, which is image-global and therefore also ran cl-mcp's
+and any other loaded system's suites — this system's `test-op` could fail on
+someone else's test (issue #4).
 
-The last number is not stable to the digit: `run-all-tests` visits every
-registered suite, and a few of them measure ambient image state such as how
-many ASDF systems are loaded. Treat a *failure* as signal, not a count that
-moved by a handful.
+Even scoped, the total is not a fixed number. The same 594 tests produce a
+few dozen more checks under `asdf:test-system` than under a direct `run!`,
+because some tests make a variable number of assertions depending on ambient
+image state (how many ASDF systems are loaded, what Quicklisp reports).
+Verified by diffing the test names of both runs: identical sets, different
+totals.
+
+So: **a failure is signal; a count that moved is not.** If you want a number
+to compare against, use `run!` on the named suite twice in the same image —
+that is stable.
 
 **Why the split.** Telos used to be a plain `:depends-on` of the single test
 system, so a machine without it could not load the tests at all — 0 checks
@@ -190,11 +196,20 @@ suite exists to prevent. `tests/telos-fixture.lisp` defines real features in
 throwaway packages the resolver cannot guess, so any regression to
 intern-based lookup fails loudly instead of passing by accident.
 
-**One trap when running tests in a live image**: `timeout-tests` asserts the
-shipped default of `*evaluation-timeout*` (30). If a session has called
-`configure-limits {"timeout": N}`, that test fails until the default is
-restored. It is correct in a fresh image; it is fragile in a REPL you have
-been working in.
+**The limits are mutable, so tests must not read them.** `configure-limits`
+mutates `*evaluation-timeout*`, `*max-output-chars*` and `*max-value-chars*`,
+so a test asserting on those specials reports on whatever the current session
+configured rather than on the code — it used to turn the suite red in any
+REPL where the timeout had been raised (issue #5). The shipped defaults are
+named constants for this reason:
+
+    +default-evaluation-timeout+   30
+    +default-max-output-chars+     100000
+    +default-max-value-chars+      2000
+
+Assert against the constants. If a test needs a particular limit, bind the
+special with `let` (or save and restore under `unwind-protect`, as the
+configure-limits tests do) — never leave it changed.
 
 ## Key Invariants
 
