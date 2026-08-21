@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-integration
 description: For Claude agents using the cl-mcp-server REPL tools. Tool mental model, usage patterns, pitfalls.
-version: 0.4.1
+version: 0.4.2
 author: quasi
 type: integration
 ---

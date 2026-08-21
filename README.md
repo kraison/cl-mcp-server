@@ -339,7 +339,7 @@ sbcl --load cl-mcp-server.asd \
 
 ## Project Status
 
-**Version**: 0.4.1
+**Version**: 0.4.2
 
 **Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
@@ -361,6 +361,29 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Version 0.4.2 (2026-08-21)
+
+**The test suite no longer stands or falls with telos** (#1)
+
+`cl-mcp-server/tests` listed `telos` in `:depends-on`, so a machine without
+telos could not load the test system at all — `asdf:test-system` failed
+before a single check ran. Two of the sixteen files use telos; the other
+fourteen were hostage to it.
+
+- `cl-mcp-server/tests` now depends only on `cl-mcp-server` and `fiveam`.
+- `cl-mcp-server/tests-telos` holds `telos-fixture` and `telos-tools-tests`.
+- `asdf:test-system :cl-mcp-server` runs both when telos is installed, and
+  the core suite alone (**1181 checks**) when it is not, saying so on stderr.
+
+The choice is made when the `.asd` is read, so the telos suites are a real
+`:in-order-to` dependency rather than a load inside `perform`, which ASDF
+deprecates as recursive `OPERATE`.
+
+The fixture still uses the real library rather than a mock, for the reason
+recorded in the dev skill: telos keys its registries by symbols interned in
+each feature's own defining package, and a mock would drift from that shape —
+which is the bug those tests exist to catch.
 
 ### Version 0.4.1 (2026-08-21)
 

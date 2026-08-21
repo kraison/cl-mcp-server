@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-dev
 description: For contributors working ON cl-mcp-server. Build/test commands, architecture, coding conventions, rules.
-version: 0.4.1
+version: 0.4.2
 author: quasi
 type: dev
 ---
@@ -50,7 +50,7 @@ digraph {
 
 `start` reduces to 3 calls:
 ```lisp
-(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.1")
+(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.2")
 (cl-mcp-server.tools:define-builtin-tools server session)
 (cl-mcp:run-server server)
 ```
@@ -154,13 +154,47 @@ Test suites: `error-format-tests`, `session-tests`, `evaluator-tests`, `tools-te
 `file-tools-tests`, `hyperspec-tests`, `quicklisp-tools-tests`, `telos-tools-tests`,
 `remote-config-tests`, `remote-tests`, `remote-inspect-tests`, `integration-tests`.
 
-**Test-only dependency on `telos`.** `cl-mcp-server` itself never requires
-telos, but `cl-mcp-server/tests` does. Telos keys its registries by symbols
-interned in each feature's *own defining package*, and a mock would drift from
-that shape exactly as the wrapper once did — which is the bug the suite exists
-to prevent. `tests/telos-fixture.lisp` therefore defines real features in
+### Two test systems, and why
+
+| System | Depends on | Files |
+|--------|-----------|-------|
+| `cl-mcp-server/tests` | `cl-mcp-server`, `fiveam` | the 15 core files |
+| `cl-mcp-server/tests-telos` | `cl-mcp-server/tests`, `telos` | `telos-fixture`, `telos-tools-tests` |
+
+`asdf:test-system :cl-mcp-server` runs both when telos is installed and the
+core suite alone when it is not, printing a line saying the telos suites were
+skipped. The choice is made when the `.asd` is *read*, so the telos suites
+are a real `:in-order-to` dependency rather than a load inside `perform` —
+ASDF deprecates the latter as recursive `OPERATE`.
+
+Expect roughly these counts:
+
+- core suite alone, telos absent — **1181 checks**
+- `run!` on `cl-mcp-server-tests` with telos — **1288 checks**
+- `asdf:test-system` (which uses `run-all-tests`, so it also sweeps suites
+  outside that parent, such as `timeout-tests`) — **~1320 checks**
+
+The last number is not stable to the digit: `run-all-tests` visits every
+registered suite, and a few of them measure ambient image state such as how
+many ASDF systems are loaded. Treat a *failure* as signal, not a count that
+moved by a handful.
+
+**Why the split.** Telos used to be a plain `:depends-on` of the single test
+system, so a machine without it could not load the tests at all — 0 checks
+ran rather than 1181. See issue #1.
+
+**Why the fixture still uses real telos.** Telos keys its registries by
+symbols interned in each feature's *own defining package*, and a mock would
+drift from that shape exactly as the wrapper once did — which is the bug the
+suite exists to prevent. `tests/telos-fixture.lisp` defines real features in
 throwaway packages the resolver cannot guess, so any regression to
 intern-based lookup fails loudly instead of passing by accident.
+
+**One trap when running tests in a live image**: `timeout-tests` asserts the
+shipped default of `*evaluation-timeout*` (30). If a session has called
+`configure-limits {"timeout": N}`, that test fails until the default is
+restored. It is correct in a fresh image; it is fragile in a REPL you have
+been working in.
 
 ## Key Invariants
 

@@ -65,7 +65,7 @@ CL-MCP-Server is a bridge between Claude and a running Common Lisp environment. 
 
 ```lisp
 (defun start ()
-  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.4.1"))
+  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.4.2"))
         (session (make-session)))
     (with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
