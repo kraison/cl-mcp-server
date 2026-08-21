@@ -514,7 +514,7 @@ if err != nil {
 
 ## See Also
 
-- [`describe-last-error` and `get-backtrace`](../../.claude/skills/integration/references/tools-reference.md) - Inspecting a captured condition
+- [`describe-last-error` and `get-backtrace`](../../.claude/skills/lisp-repl/references/tools-reference.md) - Inspecting a captured condition
 - [How to Handle Errors Gracefully](../how-to/handle-errors-gracefully.md) - Practical error-handling patterns
 - [Practical Common Lisp: Beyond Exception Handling](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) - Comprehensive tutorial on conditions
 - [CLtL2: Conditions](http://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node312.html) - Complete specification

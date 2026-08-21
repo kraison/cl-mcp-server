@@ -171,5 +171,5 @@ Line hints are approximate. The actual error may be earlier in the file where th
 
 ## See Also
 
-- [`validate-syntax` and `write-lisp-file` schemas](../../.claude/skills/integration/references/tools-reference.md)
-- [`match-paren`](../../.claude/skills/integration/references/tools-reference.md) - Locate an unbalanced paren before saving
+- [`validate-syntax` and `write-lisp-file` schemas](../../.claude/skills/lisp-repl/references/tools-reference.md)
+- [`match-paren`](../../.claude/skills/lisp-repl/references/tools-reference.md) - Locate an unbalanced paren before saving

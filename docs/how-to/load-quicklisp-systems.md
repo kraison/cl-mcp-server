@@ -218,6 +218,6 @@ Quicklisp uses distributions (snapshots of all libraries at a point in time):
 
 ## See Also
 
-- [`load-system` and `quickload`](../../.claude/skills/integration/references/tools-reference.md) - Tool schemas
+- [`load-system` and `quickload`](../../.claude/skills/lisp-repl/references/tools-reference.md) - Tool schemas
 - [Quicklisp Documentation](https://www.quicklisp.org/beta/) - Official Quicklisp docs
 - [Why Persistent Sessions?](../explanation/persistent-sessions.md) - What persists across evaluations

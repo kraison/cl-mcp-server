@@ -248,5 +248,5 @@ Code result: <very large number>
 
 ## See Also
 
-- [`time-execution`](../../.claude/skills/integration/references/tools-reference.md) - Simple execution timing (no profiling)
+- [`time-execution`](../../.claude/skills/lisp-repl/references/tools-reference.md) - Simple execution timing (no profiling)
 - [evaluate-lisp](evaluate-lisp.md) - Execute code without profiling

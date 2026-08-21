@@ -61,7 +61,7 @@ This documentation follows the [Diátaxis framework](https://diataxis.fr/) for c
 | Learn interactively | [First REPL Session Tutorial](tutorials/01-first-session.md) |
 | Understand the architecture | [Architecture Explanation](explanation/architecture.md) |
 | Look up API details | [evaluate-lisp Reference](reference/evaluate-lisp.md) |
-| Look up any of the 63 tools | [Tool Reference](../.claude/skills/integration/references/tools-reference.md) |
+| Look up any of the 63 tools | [Tool Reference](../.claude/skills/lisp-repl/references/tools-reference.md) |
 | Work against a running service | [Remote SWANK](reference/remote-swank.md) |
 
 ## For Different Audiences
@@ -89,8 +89,9 @@ This documentation follows the [Diátaxis framework](https://diataxis.fr/) for c
 **Goal**: Integrate with CL-MCP-Server programmatically.
 
 **Path**:
-- Read [`.claude/skills/integration/SKILL.md`](../.claude/skills/integration/SKILL.md) - Tool mental model and pitfalls
-- All 63 tools with full JSON schemas: [tools-reference.md](../.claude/skills/integration/references/tools-reference.md)
+- Read [`.claude/skills/lisp-repl/SKILL.md`](../.claude/skills/lisp-repl/SKILL.md) - Tool mental model and pitfalls
+- Working against a running service? [`.claude/skills/remote-lisp/SKILL.md`](../.claude/skills/remote-lisp/SKILL.md)
+- All 63 tools with full JSON schemas: [tools-reference.md](../.claude/skills/lisp-repl/references/tools-reference.md)
 - [MCP Protocol Details](reference/mcp-protocol.md) - JSON-RPC wire protocol
 
 ## What is MCP?

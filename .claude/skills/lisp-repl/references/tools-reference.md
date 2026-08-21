@@ -109,9 +109,10 @@ so it is refused.
 
 ### Remote services (read-only)
 
-These act on a **running service**, not this image. Full safety model:
-`docs/reference/remote-swank.md`. Read that before pointing them at
-anything that matters.
+These act on a **running service**, not this image. The `remote-lisp` skill
+covers the safety model; the full reference is
+[docs/reference/remote-swank.md](https://github.com/kraison/cl-mcp-server/blob/main/docs/reference/remote-swank.md).
+Read one of them before pointing these at anything that matters.
 
 #### remote-connect
 
@@ -125,7 +126,8 @@ addressed by NAME everywhere else, so a port cannot be typo'd into prod.
 | `host` | string | no | Default `127.0.0.1` |
 | `mode` | string | no | `observe` or `read` (default `read`) |
 
-Neither mode permits mutation. There is currently no mode that does.
+Neither mode permits mutation. `remote-arm` puts a target into `developer`
+mode, which does — see remote-arm / remote-disarm below.
 
 #### remote-eval
 

@@ -48,7 +48,7 @@ Unlike one-shot code execution, CL-MCP-Server provides a full REPL experience wh
 
 ### For AI Agents
 
-- **Tool Catalog**: Every tool's schema in [`tools-reference.md`](.claude/skills/integration/references/tools-reference.md)
+- **Tool Catalog**: Every tool's schema in [`tools-reference.md`](.claude/skills/lisp-repl/references/tools-reference.md)
 - **Predictable Behavior**: Documented invariants and properties (see the [dev skill](.claude/skills/dev/SKILL.md))
 - **JSON Schema**: Structured request/response formats
 - **Standard Transport**: stdio-based communication
@@ -167,8 +167,9 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 
 ### For External Agents
 
-- **[Integration Skill](.claude/skills/integration/SKILL.md)** - Tool mental model, usage patterns, pitfalls
-- **[Tool Reference](.claude/skills/integration/references/tools-reference.md)** - All 63 tools with full schemas
+- **[`lisp-repl` skill](.claude/skills/lisp-repl/SKILL.md)** - Tool mental model, usage patterns, pitfalls
+- **[`remote-lisp` skill](.claude/skills/remote-lisp/SKILL.md)** - Attaching to a running Lisp service safely
+- **[Tool Reference](.claude/skills/lisp-repl/references/tools-reference.md)** - All 63 tools with full schemas
 - **[MCP Protocol](docs/reference/mcp-protocol.md)** - JSON-RPC wire protocol details
 
 ## Features
@@ -339,7 +340,7 @@ sbcl --load cl-mcp-server.asd \
 
 ## Project Status
 
-**Version**: 0.4.2
+**Version**: 0.4.3
 
 **Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
@@ -361,6 +362,29 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Version 0.4.3 (2026-08-21)
+
+**The shipped skills now reach every project, and say when to fire**
+
+The MCP server is configured globally, but the skills that teach its use
+were project-local — so in any repo other than this one, 63 tools were
+available and nothing introduced them. Their descriptions also said what
+they *were* rather than when to use them, which is what skill selection
+matches on.
+
+- `.claude/skills/integration/` is now `.claude/skills/lisp-repl/`, with a
+  description that triggers on writing or debugging Common Lisp.
+- The `remote-*` tools moved to a new `remote-lisp` skill. Attaching to a
+  running service is a different risk model from evaluating a form, and it
+  deserves a trigger of its own rather than a row in someone else's table.
+- Both are symlinked into `~/.claude/skills/`, so they apply everywhere.
+- Paths inside the skills are skill-relative or absolute URLs; a skill used
+  from another project cannot resolve `docs/...`.
+
+Also corrected in `tools-reference.md`: "Neither mode permits mutation.
+There is currently no mode that does" predated mutate mode and contradicted
+the `remote-arm` section eighty lines below it.
 
 ### Version 0.4.2 (2026-08-21)
 
@@ -439,7 +463,7 @@ often than "when warnings are present" suggests.
 - Backtraces drop MCP server frames and report available restarts
 
 **Housekeeping**
-- The `canon/` specification directory was removed; the tool catalog in `.claude/skills/integration/references/tools-reference.md` is now the authority on tool schemas
+- The `canon/` specification directory was removed; the tool catalog in `.claude/skills/lisp-repl/references/tools-reference.md` is now the authority on tool schemas
 - The 80-column limit now holds across the whole tree — source, tests,
   the `.asd` and the launcher (`tools/check-line-length.py` reports 0).
   Tool metadata and the embedded usage guide were verified byte-identical

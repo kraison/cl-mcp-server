@@ -464,5 +464,5 @@ Expanded:
 ## See Also
 
 - [evaluate-lisp Tool](evaluate-lisp.md) - Execute Common Lisp code
-- [`compile-form`](../../.claude/skills/integration/references/tools-reference.md) - Compile code without executing
+- [`compile-form`](../../.claude/skills/lisp-repl/references/tools-reference.md) - Compile code without executing
 - [How to: Explore Code](../how-to/explore-code.md) - Practical introspection guide

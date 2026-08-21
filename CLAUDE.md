@@ -34,13 +34,14 @@ real audit.
   live outside the session on purpose. There is no expiry.
 - finishing up → `remote-disconnect` with `cleanup`, which sweeps what we left
 
-See `docs/reference/remote-swank.md`.
+Invoke the remote-lisp skill: `.claude/skills/remote-lisp/SKILL.md`.
+Full reference: `docs/reference/remote-swank.md`.
 
 ## For contributors working on this project
 Invoke the dev skill: `.claude/skills/dev/SKILL.md`
 
 ## For agents using the REPL tools
-Invoke the integration skill: `.claude/skills/integration/SKILL.md`
+Invoke the lisp-repl skill: `.claude/skills/lisp-repl/SKILL.md`
 
 ## Dependencies
 @~/quicklisp/local-projects/opsis/CLAUDE.md

@@ -1,7 +1,7 @@
 ---
-name: cl-mcp-server-integration
-description: For Claude agents using the cl-mcp-server REPL tools. Tool mental model, usage patterns, pitfalls.
-version: 0.4.2
+name: lisp-repl
+description: Use when writing, running, debugging or exploring Common Lisp — a persistent SBCL REPL is available through the cl-mcp tools, so code can be evaluated and inspected in a live image instead of reasoned about from source. Prefer it over shelling out to sbcl. Triggers on writing or fixing .lisp/.asd files, a CL error or backtrace to diagnose, "does this compile", "what does this function do", checking a symbol's arglist or a class's slots, loading an ASDF/Quicklisp system, or profiling Lisp code.
+version: 0.4.3
 author: quasi
 type: integration
 ---
@@ -29,16 +29,11 @@ much more.
 | wonder what a value actually contains | `inspect-object` |
 | wonder what a call actually did | `trace-call` |
 | want to recover from an error, not just see it | `evaluate-with-restarts` |
-| touch a running service | `remote-connect`, then `remote-eval` |
-| wonder what you did to a service | `remote-ledger` |
-| wonder what a value on a service holds | `remote-inspect` |
-| need to redefine on a service you own | `remote-arm`, then `remote-disarm` |
-| finish with a service | `remote-disconnect` with `cleanup` |
 
-`remote-*` tools act on a **live service**, where a mistake is not undoable.
-They are read-only by default and refuse mutations unless the target has
-been armed with `remote-arm`, but the classifier is a guardrail
-against accidents, not a sandbox. See `docs/reference/remote-swank.md`.
+**Working against a *running service* rather than this image?** The
+`remote-*` tools are covered by their own skill, `remote-lisp` — a live
+service is a different risk model and deserves reading about before you
+touch it, not a row in a table here.
 
 ## Quick Start
 
@@ -101,7 +96,7 @@ Operation was (/ 1 0).
 
 ## Tool Categories
 
-Full reference: `.claude/skills/integration/references/tools-reference.md`
+Full reference: `references/tools-reference.md` (beside this skill)
 
 | Category | Tools |
 |----------|-------|
@@ -223,6 +218,6 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 
 ## Detailed Reference
 
-- **All 63 tools with full schemas**: `.claude/skills/integration/references/tools-reference.md`
-- **Architecture**: `docs/explanation/architecture.md`
-- **Remote services**: `docs/reference/remote-swank.md`
+- **All 63 tools with full schemas**: `references/tools-reference.md` (beside this skill)
+- **Running services**: the `remote-lisp` skill
+- **Architecture**: [docs/explanation/architecture.md](https://github.com/kraison/cl-mcp-server/blob/main/docs/explanation/architecture.md)

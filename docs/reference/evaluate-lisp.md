@@ -507,7 +507,7 @@ This tool is invoked via the MCP `tools/call` method:
 - **Quickstart**: [Get Running in 5 Minutes](../quickstart.md)
 - **Tutorial**: [Your First REPL Session](../tutorials/01-first-session.md)
 - **Explanation**: [How It Works](../explanation/architecture.md)
-- **Schema**: [`tools-reference.md`](../../.claude/skills/integration/references/tools-reference.md)
+- **Schema**: [`tools-reference.md`](../../.claude/skills/lisp-repl/references/tools-reference.md)
 
 ---
 

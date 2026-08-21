@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-dev
-description: For contributors working ON cl-mcp-server. Build/test commands, architecture, coding conventions, rules.
-version: 0.4.2
+description: Use when changing cl-mcp-server itself — adding or editing a tool, touching src/ or tests/, running its suite, or cutting a release. Covers build and test commands, the package layout, the rules a tool handler must obey, and the 80-column convention. Not for merely *using* the REPL tools; that is the lisp-repl skill.
+version: 0.4.3
 author: quasi
 type: dev
 ---
@@ -50,7 +50,7 @@ digraph {
 
 `start` reduces to 3 calls:
 ```lisp
-(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.2")
+(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.3")
 (cl-mcp-server.tools:define-builtin-tools server session)
 (cl-mcp:run-server server)
 ```
@@ -218,4 +218,8 @@ When Lisp MCP tools are available (`mcp__lisp__evaluate-lisp`):
 - **Protocol specs**: `docs/reference/mcp-protocol.md` → wire protocol and dispatch
 - **Architecture**: `docs/explanation/architecture.md`
 - **cl-mcp API**: `../cl-mcp/CLAUDE.md`
-- **Tool catalog**: `.claude/skills/integration/references/tools-reference.md`
+- **Tool catalog**: `.claude/skills/lisp-repl/references/tools-reference.md`
+- **Skills shipped here**: `lisp-repl` (using the REPL) and `remote-lisp`
+  (running services). Both are symlinked into `~/.claude/skills/` so they
+  apply in every project, since the MCP server is configured globally —
+  keep their descriptions trigger-shaped, or they will not fire.

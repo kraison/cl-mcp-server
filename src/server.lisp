@@ -5,7 +5,7 @@
 
 (defun start ()
   "Start the CL REPL MCP server. Reads from stdin, writes to stdout."
-  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.4.2"))
+  (let ((server (cl-mcp:make-server :name "cl-mcp-server" :version "0.4.3"))
         (session (make-session)))
     (with-session (session)
       (cl-mcp-server.tools:define-builtin-tools server session)
