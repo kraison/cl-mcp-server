@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-dev
 description: For contributors working ON cl-mcp-server. Build/test commands, architecture, coding conventions, rules.
-version: 0.4.0
+version: 0.4.1
 author: quasi
 type: dev
 ---
@@ -50,7 +50,7 @@ digraph {
 
 `start` reduces to 3 calls:
 ```lisp
-(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.0")
+(cl-mcp:make-server :name "cl-mcp-server" :version "0.4.1")
 (cl-mcp-server.tools:define-builtin-tools server session)
 (cl-mcp:run-server server)
 ```

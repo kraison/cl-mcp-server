@@ -150,26 +150,37 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                   . (("type" . "integer")
                      ("description"
                       . ,(format nil "Maximum output characters to capture ~
-                                     (default: 100000)")))))))
+                                     (default: 100000)"))))
+                 ("max-value"
+                  . (("type" . "integer")
+                     ("description"
+                      . ,(format nil "Maximum characters of a single printed ~
+                                     return value before it is truncated ~
+                                     (default: 2000)")))))))
    :handler (lambda (args)
               (let ((timeout (cdr (assoc "timeout" args :test #'string=)))
                     (max-output (cdr (assoc "max-output" args :test
-                                      #'string=))))
+                                      #'string=)))
+                    (max-value (cdr (assoc "max-value" args :test
+                                     #'string=))))
                 ;; Apply changes if provided
                 (when timeout
                   (setf cl-mcp-server.evaluator:*evaluation-timeout*
                         (if (zerop timeout) nil timeout)))
                 (when max-output
                   (setf cl-mcp-server.evaluator:*max-output-chars* max-output))
+                (when max-value
+                  (setf cl-mcp-server.evaluator:*max-value-chars* max-value))
                 ;; Return current configuration
                 (format nil
                  "Current limits:~%  timeout: ~A seconds~A~%  ~
-                  max-output: ~A characters"
+                  max-output: ~A characters~%  max-value: ~A characters"
                         (or cl-mcp-server.evaluator:*evaluation-timeout*
                          "disabled")
                         (if cl-mcp-server.evaluator:*evaluation-timeout* ""
                          " (WARNING: no timeout)")
-                        cl-mcp-server.evaluator:*max-output-chars*))))
+                        cl-mcp-server.evaluator:*max-output-chars*
+                        cl-mcp-server.evaluator:*max-value-chars*))))
 
   ;; ========================================================================
   ;; Phase A: Introspection Tools

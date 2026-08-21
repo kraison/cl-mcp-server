@@ -1,7 +1,7 @@
 ---
 name: cl-mcp-server-integration
 description: For Claude agents using the cl-mcp-server REPL tools. Tool mental model, usage patterns, pitfalls.
-version: 0.4.0
+version: 0.4.1
 author: quasi
 type: integration
 ---
@@ -198,7 +198,7 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 | `validate-syntax` | `code: string` | — |
 | `describe-symbol` | `name: string` | `package: string` |
 | `apropos-search` | `pattern: string` | `package: string`, `type: string` |
-| `configure-limits` | — | `timeout: integer`, `max-output: integer` |
+| `configure-limits` | — | `timeout: integer`, `max-output: integer`, `max-value: integer` |
 | `quickload` | `system: string` | — |
 | `load-system` | `system: string` | — |
 | `load-file` | `path: string` | `compile: bool` |
@@ -213,6 +213,7 @@ args: {"code": "(loop repeat 1000000 sum 1)", "mode": "cpu"}
 | Stale session | Undefined symbols from prior work | `reset-session` |
 | No timeout | Server hangs on infinite loop | `configure-limits {"timeout": 30}` |
 | Large output | Response truncated | `configure-limits {"max-output": 50000}` |
+| Value cut at `; [value truncated ...]` | Over the 2000-char default | `configure-limits {"max-value": 20000}` |
 | Missing package | `No package error` | `evaluate-lisp` with `"package": "cl-user"` |
 | `load-system` vs `quickload` | System not found | Use `quickload` for Quicklisp systems; `load-system` for ASDF-registered only |
 | Telos tools on unloaded system | `Telos is not loaded in this image` | `quickload` telos, then reload the system whose source has the `deffeature` forms |

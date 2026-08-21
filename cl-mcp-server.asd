@@ -5,7 +5,7 @@
   :description "Model Context Protocol server for Common Lisp evaluation"
   :author "Abhijit Rao <quasi@quasilabs.com>"
   :license "MIT"
-  :version "0.4.0"
+  :version "0.4.1"
   :serial t
   :depends-on (#:cl-mcp            ; MCP protocol framework
                #:alexandria        ; Utilities

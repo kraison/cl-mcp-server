@@ -459,8 +459,9 @@ Set evaluation safety limits. Returns current config.
 |-------|------|-------------|
 | `timeout` | integer | Seconds (0 = disabled, default: 30) |
 | `max-output` | integer | Max output chars (default: 100000) |
+| `max-value` | integer | Max chars of one printed return value (default: 2000) |
 
-Both args optional — omit to just query current limits.
+All args optional — omit to just query current limits.
 
 ---
 

@@ -189,7 +189,7 @@ CL-MCP-Server provides **63 tools** organized into categories:
 
 #### Workflow & Configuration
 - **`get-usage-guide`** - Get the recommended workflow for effective REPL-assisted development
-- **`configure-limits`** - Configure evaluation timeout and maximum captured output
+- **`configure-limits`** - Configure evaluation timeout, captured output and return-value limits
 
 #### Code Evaluation & Execution
 - **`evaluate-lisp`** - Execute Common Lisp code in persistent REPL session
@@ -287,7 +287,7 @@ See [Tools Reference](docs/reference/) for detailed documentation.
 
 `evaluate-lisp` is optimized for MCP token usage. The default response returns the information an agent usually needs immediately, and keeps verbose diagnostic detail available through dedicated follow-up tools.
 
-- Warning responses show warnings only. Return values are suppressed when warnings are present, avoiding large `=> ...` echoes from forms that returned a long value.
+- Return values are bounded by **length**, not by whether a warning fired. A value over `max-value` characters (default 2000) is cut with a `; [value truncated at N of M characters]` notice; anything shorter prints whole, warning or not. Every successful evaluation says either what came back or `; No values` — the two are never confused.
 - Error and timeout responses are concise by default: condition type plus message, without an inline backtrace.
 - Full error context is still captured in the session. Use **`describe-last-error`** for restarts and a backtrace overview, or **`get-backtrace`** for stack frames.
 - If inline backtraces are needed for a special workflow, the evaluator exposes `cl-mcp-server.evaluator:*include-backtrace-in-evaluate-response*`.
@@ -339,7 +339,7 @@ sbcl --load cl-mcp-server.asd \
 
 ## Project Status
 
-**Version**: 0.4.0
+**Version**: 0.4.1
 
 **Status**: Alpha (human testing required). The core functionality is working and tested with 63 tools available. The API may change as we gather user feedback.
 
@@ -361,6 +361,33 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Version 0.4.1 (2026-08-21)
+
+**`evaluate-lisp` no longer hides return values behind warnings** (#2)
+
+0.4.0 dropped every return value when any warning was signalled. The intent
+was token economy; the trigger was the wrong one. It keyed on *whether a
+warning fired* rather than *how big the value is*, so a twelve-character
+symbol vanished because of a style warning while a hundred-character list
+printed in full because nothing had warned.
+
+Worse, `; No values` sat inside the suppressed branch, so
+`(progn (warn "w") 42)` and `(progn (warn "w") (values))` rendered
+byte-identically: a caller could not tell a value that was withheld from one
+that never existed.
+
+- Values are now bounded by **length**. Over `*max-value-chars*` (default
+  2000) a value is cut with `; [value truncated at N of M characters]`;
+  under it, the value prints whole whether or not anything warned.
+- Every successful evaluation reports either its values or `; No values`.
+- `configure-limits` gained `max-value` so the limit is visible and tunable
+  next to `timeout` and `max-output`.
+
+The capture is `(handler-bind ((warning ...)))` — the whole `warning` class,
+including `style-warning` and SBCL's `redefinition-with-defun`. Redefinition
+is the normal event in a persistent REPL, so the old rule fired far more
+often than "when warnings are present" suggests.
 
 ### Version 0.4.0 (2026-08-20)
 

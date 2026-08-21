@@ -14,6 +14,15 @@ Set to NIL to disable timeout (not recommended for untrusted code).")
 (defparameter *max-output-chars* 100000
   "Maximum characters to capture from stdout/stderr before truncation.")
 
+(defparameter *max-value-chars* 2000
+  "Maximum characters of a single printed return value before truncation.
+
+Guards the one thing worth guarding -- an enormous value echoed back for no
+benefit. It replaces an earlier rule that dropped values whenever any
+warning was signalled, which keyed on the wrong axis: a twelve-character
+symbol vanished because of a style warning while a large value printed in
+full because nothing had warned. See issue #2.")
+
 (defparameter *include-backtrace-in-evaluate-response* nil
   "Whether evaluate-code includes backtraces in immediate error responses.
 Backtraces are still captured in structured errors for describe-last-error
@@ -23,6 +32,16 @@ and get-backtrace.")
   "Truncate STRING to at most LIMIT characters, appending a truncation notice."
   (if (and limit (> (length string) limit))
       (format nil "~A~%~%[Output truncated at ~:D of ~:D characters]"
+              (subseq string 0 limit) limit (length string))
+      string))
+
+(defun truncate-value (string limit)
+  "Truncate a printed return value to LIMIT characters, saying so.
+
+The notice is the point: a caller must be able to tell a value that was
+shortened from one that was never there."
+  (if (and limit (> (length string) limit))
+      (format nil "~A~%; [value truncated at ~:D of ~:D characters]"
               (subseq string 0 limit) limit (length string))
       string))
 
@@ -400,16 +419,16 @@ Includes stdout output, warnings, return values, timing, and errors."
     ;; Warnings section
     (dolist (warning (result-warnings result))
       (format s "[Warning] ~a~%" warning))
-    ;; Values or error. When warnings were signaled, the diagnostic text is the
-    ;; useful payload; suppress return values to avoid echoing large forms.
+    ;; Values or error. Values are bounded by length, not by whether a
+    ;; warning fired: size is what is worth guarding, and every evaluation
+    ;; says either what came back or that nothing did.
     (if (result-success-p result)
         (progn
-          (unless (result-warnings result)
-            (let ((values (result-values result)))
-              (if values
-                  (dolist (val values)
-                    (format s "=> ~a~%" val))
-                  (format s "; No values~%"))))
+          (let ((values (result-values result)))
+            (if values
+                (dolist (val values)
+                  (format s "=> ~a~%" (truncate-value val *max-value-chars*)))
+                (format s "; No values~%")))
           ;; Timing section (if present)
           (let ((timing (result-timing result)))
             (when timing

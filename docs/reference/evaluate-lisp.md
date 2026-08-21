@@ -113,8 +113,9 @@ The `text` field contains:
 - `[stdout]` appears only if `*standard-output*` received output
 - `[stderr]` appears only if `*error-output*` received output
 - `[warnings]` appears only if warnings were signaled
-- `=> value` lines appear for each return value only when no warnings were signaled
-- When warnings are present, return values are suppressed to keep MCP responses diagnostic-focused
+- `=> value` lines appear for each return value, whether or not warnings were signaled
+- A value longer than `max-value` characters (default 2000) is truncated with a `; [value truncated at N of M characters]` notice
+- `; No values` appears when the form returned nothing, so a value that was withheld is never mistaken for a value that never existed
 
 ### Examples
 

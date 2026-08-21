@@ -344,27 +344,33 @@
     (is (search "=> 42" formatted))))
 
 (test format-result-with-warnings
-  "Test formatting a result with warnings suppresses return values"
+  "A warning is reported alongside the value, not instead of it"
   (let* ((result (cl-mcp-server.evaluator:evaluate-code
                   "(warn \"be careful\") :ok"))
          (formatted (cl-mcp-server.evaluator:format-result result)))
     (is (search "Warning" formatted))
     (is (search "be careful" formatted))
-    (is (null (search "=> :OK" formatted)))))
+    ;; Was asserted absent until issue #2: a warning is not a reason to
+    ;; withhold a two-character value.
+    (is (search "=> :OK" formatted))))
 
-(test format-result-with-warnings-saves-large-value-output
-  "Test that warnings do not echo large return values"
-  (let* ((result (cl-mcp-server.evaluator:evaluate-code
-                  "(warn \"large result\") (loop repeat 100 collect 'x)"))
-         (formatted (cl-mcp-server.evaluator:format-result result))
-         (legacy-size (+ (length formatted)
-                         (length "=> ")
-                         (length (first (cl-mcp-server.evaluator:result-values
-                                         result)))
-                         1)))
-    (is (search "large result" formatted))
-    (is (null (search "=> " formatted)))
-    (is (< (length formatted) legacy-size))))
+(test format-result-bounds-large-values-by-length
+  "A large value is cut to the limit whether or not anything warned"
+  (let* ((cl-mcp-server.evaluator:*max-value-chars* 100)
+         (warned (cl-mcp-server.evaluator:format-result
+                  (cl-mcp-server.evaluator:evaluate-code
+                   "(warn \"large result\") (loop repeat 100 collect 'x)")))
+         (quiet (cl-mcp-server.evaluator:format-result
+                 (cl-mcp-server.evaluator:evaluate-code
+                  "(loop repeat 100 collect 'x)"))))
+    (is (search "large result" warned))
+    ;; the value survives, bounded, in both cases
+    (is (search "=> " warned))
+    (is (search "=> " quiet))
+    (is (search "[value truncated at 100 of" warned))
+    (is (search "[value truncated at 100 of" quiet))
+    ;; and the guard is on size, so the warning changes nothing about it
+    (is (< (length warned) 400))))
 
 (test format-error-result
   "Test formatting an error result uses concise diagnostics"
@@ -596,3 +602,62 @@
                   :capture-time t))
          (formatted (cl-mcp-server.evaluator:format-timing-result result)))
     (is (search "Error" formatted))))
+
+;;; ==========================================================================
+;;; Return values are bounded by length, not by whether a warning fired
+;;;
+;;; The earlier rule dropped every value when any warning was signalled. It
+;;; also skipped the "; No values" line, so a form returning 42 and a form
+;;; returning nothing rendered identically. See issue #2.
+;;; ==========================================================================
+
+(defun ev-render (code)
+  "Evaluate CODE and render it exactly as the evaluate-lisp tool would."
+  (cl-mcp-server.evaluator:format-result
+   (cl-mcp-server.evaluator:evaluate-code code)))
+
+(test warning-does-not-hide-the-return-value
+  "A style warning reports the warning AND the value"
+  (let ((out (ev-render "(defun ev-unused-arg (x) 5)")))
+    (is (search "[Warning]" out))
+    (is (search "=> EV-UNUSED-ARG" out))))
+
+(test warned-value-and-warned-nothing-are-distinguishable
+  "The two cases rendered identically before; they must not now"
+  (let ((with-value (ev-render "(progn (warn \"w\") 42)"))
+        (no-values (ev-render "(progn (warn \"w\") (values))")))
+    (is (search "[Warning]" with-value))
+    (is (search "[Warning]" no-values))
+    (is (search "=> 42" with-value))
+    (is (search "; No values" no-values))
+    (is (not (string= with-value no-values)))))
+
+(test no-values-is-still-reported-without-warnings
+  "The quiet case keeps saying nothing came back"
+  (is (search "; No values" (ev-render "(values)"))))
+
+(test small-value-is-not-truncated
+  "A value under the limit prints whole, with no notice"
+  (let ((out (ev-render "(list 1 2 3)")))
+    (is (search "=> (1 2 3)" out))
+    (is (not (search "truncated" out)))))
+
+(test large-value-is-truncated-and-says-so
+  "Over the limit, the value is cut and the caller is told"
+  (let* ((cl-mcp-server.evaluator:*max-value-chars* 80)
+         (out (ev-render "(make-string 500 :initial-element #\\x)")))
+    (is (search "=> " out))
+    (is (search "[value truncated at 80 of" out))
+    ;; the notice must not be mistaken for the value having been absent
+    (is (not (search "; No values" out)))))
+
+(test truncation-limit-is-configurable
+  "Raising the limit stops the truncation"
+  (let ((cl-mcp-server.evaluator:*max-value-chars* 100000))
+    (is (not (search "truncated"
+                     (ev-render "(make-string 500 :initial-element #\\x)"))))))
+
+(test truncate-value-passes-short-strings-through
+  "truncate-value is identity below the limit"
+  (is (string= "abc" (cl-mcp-server.evaluator::truncate-value "abc" 10)))
+  (is (string= "abc" (cl-mcp-server.evaluator::truncate-value "abc" nil))))

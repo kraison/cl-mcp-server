@@ -80,6 +80,7 @@
    ;; Timeout configuration
    #:*evaluation-timeout*
    #:*max-output-chars*
+   #:*max-value-chars*
    #:*include-backtrace-in-evaluate-response*))
 
 (defpackage #:cl-mcp-server.introspection
