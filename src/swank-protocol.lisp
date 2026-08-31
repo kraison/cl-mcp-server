@@ -45,15 +45,19 @@ than a slow one, so this is deliberately short.")
   "Open a SWANK connection. Signals SWANK-ERROR when unreachable."
   (handler-case
       (let* ((socket (usocket:socket-connect
-                      host port
+                      ;; Belt to register-target's coercion (GH #7).
+                      (coerce host 'simple-string) port
                       :element-type 'character
                       :timeout *connect-timeout*))
              (stream (usocket:socket-stream socket)))
         (make-swank-connection :socket socket :stream stream))
     (error (e)
+      ;; Carry the condition's own message, not just its type: a bare
+      ;; "(TYPE-ERROR)" reads as network unreachability and cost half an
+      ;; hour of diagnosis pointed the wrong way (GH #7).
       (error 'swank-error
-             :detail (format nil "cannot reach ~A:~D (~A)" host port
-                             (type-of e))))))
+             :detail (format nil "cannot reach ~A:~D (~A: ~A)" host port
+                             (type-of e) e)))))
 
 (defun disconnect (conn)
   (ignore-errors (usocket:socket-close (conn-socket conn)))

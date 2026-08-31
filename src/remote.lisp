@@ -33,7 +33,11 @@ reconnect does not silently drop arming. Replacing the struct would leave
 the ledger showing an :arm with no :disarm while the target was in fact
 unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it."
-  (let ((stale nil))
+  ;; The MCP JSON layer hands over fill-pointered strings, and usocket's
+  ;; SBCL path declares SIMPLE-STRING for the host -- store it simple or
+  ;; every registry connect dies with a masked TYPE-ERROR (GH #7).
+  (let ((stale nil)
+        (host (coerce host 'simple-string)))
     (bt:with-lock-held (*lock*)
       (let ((existing (gethash name *targets*)))
         (cond
