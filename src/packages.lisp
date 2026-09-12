@@ -318,6 +318,7 @@
   (:export
    #:armable-target-p
    #:armable-targets
+   #:blackboard-target
    #:reload-config
    #:config-error
    #:config-error-detail))

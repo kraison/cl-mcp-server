@@ -85,3 +85,21 @@ that can tell the two worlds apart."
     (cl-mcp-server.remote-config:config-error ()
       ;; The expected path: the reader refused #. outright.
       (is-true t))))
+
+(test blackboard-target-is-the-config-file-s-plist
+  "The :blackboard key beside :armable-targets; both are read from the
+one form, and the allowlist is unchanged by the second key"
+  (with-config (:file "(:armable-targets (\"scratch\")
+ :blackboard (:host \"127.0.0.1\" :port 1 :role \"claude-code\"))"
+                :env :unset)
+    (is-true (cl-mcp-server.remote-config:armable-target-p "scratch"))
+    (is (equal '(:host "127.0.0.1" :port 1 :role "claude-code")
+               (cl-mcp-server.remote-config:blackboard-target)))))
+
+(test no-blackboard-key-means-no-blackboard-tools
+  "Absent key, absent file: NIL, so nothing is loaded and nothing is
+registered. The environment override does not reach this key."
+  (with-config (:file "(:armable-targets (\"scratch\"))" :env "other")
+    (is (null (cl-mcp-server.remote-config:blackboard-target))))
+  (with-config (:file nil :env :unset)
+    (is (null (cl-mcp-server.remote-config:blackboard-target)))))

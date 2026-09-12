@@ -36,22 +36,42 @@ meaning 'nothing is armable'.")
                  (setf start (1+ i))))
     (nreverse out)))
 
-(defun %read-file (path)
-  "Allowlist from PATH. Signals CONFIG-ERROR if it will not parse.
-Only the first form is read; a second top-level form is ignored. If target
-definitions ever move into this file, this becomes a read loop."
+(defun %read-form (path)
+  "The first form in PATH, or NIL when there is no file. Signals
+CONFIG-ERROR if it will not parse. One reader for every key the file
+holds: :armable-targets is no longer its only one."
   (handler-case
       (with-open-file (in path :if-does-not-exist nil)
         (when in
-          (let* ((*read-eval* nil)   ; #. would run code at startup
-                 (form (read in nil nil)))
-            (mapcar #'string (getf form :armable-targets)))))
+          (let ((*read-eval* nil))   ; #. would run code at startup
+            (read in nil nil))))
     (error (e)
       (error 'config-error
              :detail (format nil "~A is unreadable (~A)" path (type-of e))))))
 
+(defun %read-file (path)
+  "Allowlist from PATH. Only the first form is read; a second top-level
+form is ignored."
+  (mapcar #'string (getf (%read-form path) :armable-targets)))
+
+(defvar *blackboard* :unread
+  "Cached :BLACKBOARD target, or :UNREAD before the first read.")
+
+(defun blackboard-target ()
+  "The :BLACKBOARD plist from the config file, or NIL. A plist of :host
+:port :role and optionally :instance :connect-timeout :request-timeout,
+which BLACKBOARD.MCP:REGISTER-BLACKBOARD-TOOLS takes. NIL means the
+blackboard tools are not registered and that system is never loaded.
+The environment does not override this key: it names a service, not a
+permission."
+  (when (eq *blackboard* :unread)
+    (setf *blackboard* (getf (%read-form *config-path*) :blackboard)))
+  *blackboard*)
+
 (defun reload-config ()
-  "Re-read the allowlist. The environment REPLACES the file."
+  "Re-read the allowlist. The environment REPLACES the file. The
+:blackboard key is re-read on its next use."
+  (setf *blackboard* :unread)
   (setf *armable*
         (let ((env (if (eq *env-override* :unset)
                        (sb-ext:posix-getenv "CL_MCP_ARMABLE_TARGETS")
