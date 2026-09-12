@@ -183,6 +183,10 @@ See the [Quickstart Guide](docs/quickstart.md) for a complete walkthrough.
 - ✓ **Multiple Values**: Full support for Common Lisp's multiple return values
 - ✓ **Safety**: Server isolation mitigates against user code from crashing the server
 - ✓ **Stream Capture**: All output streams are captured during evaluation
+- ✓ **Blackboard tools** (optional): one tool per operator of a running
+  [blackboard](https://github.com/kraison/blackboard) service, derived at
+  startup when the config file names a target — see
+  [How to: Register a blackboard's tools](docs/how-to/blackboard.md)
 
 ### Available Tools
 
@@ -362,6 +366,18 @@ MIT License
 - Abhijit Rao -> quasi (quasi@quasilabs.in)
 
 ## Changelog
+
+### Unreleased
+
+**Blackboard tools, switched on by the config file.** When
+`~/.config/cl-mcp-server/config.sexp` carries a `:blackboard` target
+beside `:armable-targets`, `start` loads `blackboard/mcp` and registers
+one tool per operator of that service, derived from the service's own
+vocabulary. No `:blackboard` key: nothing is loaded, nothing changes.
+`remote-config` reads the file's one form once for both keys and
+exports `blackboard-target`; the server needs `BLACKBOARD_ASDF_REGISTRY`
+in its environment for the load. See
+[docs/how-to/blackboard.md](docs/how-to/blackboard.md).
 
 ### Version 0.4.4 (2026-08-21)
 
