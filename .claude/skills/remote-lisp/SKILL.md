@@ -87,6 +87,12 @@ when done.
 Not on our side: `(gethash k *huge-table*)` could flood or stall the service
 before a byte reached us. Limits travel with the form.
 
+They are dynamic bindings (`*print-length*` 200, `*print-level*` 5), so
+anything the form calls that prints data to a file inherits them: a
+snapshot, backup, export or journal written through `remote-eval` comes out
+truncated (`(#)`) and may not read back. Wrap such a call in
+`(let ((*print-length* nil) (*print-level* nil)) ...)`.
+
 ## Before you believe a session's work
 
 Read `remote-ledger`. It records every form sent, refusals included, with
