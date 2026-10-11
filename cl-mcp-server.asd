@@ -72,22 +72,29 @@
   ;; returns T for a suite it cannot find, which is green CI over 0 tests.
   ;; Hence the explicit NULL check below rather than trusting the result.
   ;;
-  ;; The telos suites live in a separate system, pulled in as a real
-  ;; dependency of THIS system's test-op -- but only when telos is actually
-  ;; installed. Deciding at read time keeps it a dependency rather than a
-  ;; load inside PERFORM, which ASDF deprecates as recursive OPERATE.
+  ;; The telos and swank suites live in separate systems, pulled in as
+  ;; real dependencies of THIS system's test-op -- but only when telos or
+  ;; swank is actually installed. Deciding at read time keeps it a
+  ;; dependency rather than a load inside PERFORM, which ASDF deprecates as
+  ;; recursive OPERATE.
   ;;
   ;; They used to sit in this system behind a plain :depends-on, which meant
   ;; a machine without telos could not load it at all: 0 checks ran rather
   ;; than 1181. See issue #1.
   :in-order-to
-  #.(if (asdf:find-system "telos" nil)
-        '((asdf:test-op (asdf:load-op #:cl-mcp-server/tests-telos)))
-        (progn (format *error-output*
-                       "~&; cl-mcp-server: telos is not installed, so its ~
-                        test suites are skipped.~%; Every other suite still ~
-                        runs.~%")
-               nil))
+  #.(let ((extras
+            (loop for (library system)
+                    in '(("telos" #:cl-mcp-server/tests-telos)
+                         ("swank" #:cl-mcp-server/tests-swank))
+                  if (asdf:find-system library nil)
+                    collect system
+                  else
+                    do (format *error-output*
+                               "~&; cl-mcp-server: ~A is not installed, so ~
+                                its test suites are skipped.~%; Every other ~
+                                suite still runs.~%" library))))
+      (when extras
+        `((asdf:test-op (asdf:load-op ,@extras)))))
   :perform (asdf:test-op (o c)
              (let ((suite (find-symbol "CL-MCP-SERVER-TESTS"
                                        "CL-MCP-SERVER-TESTS")))
@@ -111,3 +118,15 @@ take the rest of the suite down"
                 :components
                 ((:file "telos-fixture")
                  (:file "telos-tools-tests")))))
+
+(asdf:defsystem #:cl-mcp-server/tests-swank
+  :description "Round trips against a real SWANK server, separated so a
+missing swank cannot take the rest of the suite down"
+  :depends-on (#:cl-mcp-server/tests
+               ;; The real server, not a fixture: a model of the protocol
+               ;; written from our reading of it shares our misreading
+               ;; (GH #11).
+               #:swank)
+  :components ((:module "tests"
+                :components
+                ((:file "swank-wire-tests")))))

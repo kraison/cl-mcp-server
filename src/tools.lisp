@@ -482,7 +482,10 @@ Reachable; remote SBCL ~A.~%~%~A"
                           (arg "target") (arg "code")
                           :package (or (arg "package") "COMMON-LISP-USER"))))
                   (if (getf r :ok)
-                      (values (format nil "~@[[stdout]~%~A~%~]=> ~A~%"
+                      (values (format nil "~:[~;[The service had closed the ~
+previous connection, as a restart does; this call opened a new one.]~%~]~
+~@[[stdout]~%~A~%~]=> ~A~%"
+                                      (getf r :reconnected)
                                       (let ((o (getf r :output)))
                                         (and o (plusp (length o)) o))
                                       (getf r :result))

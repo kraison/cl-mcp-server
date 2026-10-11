@@ -310,6 +310,8 @@
    #:swank-error
    #:swank-aborted
    #:swank-aborted-restarts
+   #:swank-connection-lost
+   #:connection-state
    #:*call-timeout*
    #:*connect-timeout*))
 

@@ -634,3 +634,201 @@ whole suite still green."
   (is (string= "127.0.0.2"
                (cl-mcp-server.remote:target-host
                 (cl-mcp-server.remote::find-target "hostmove")))))
+
+;;; ==========================================================================
+;;; Framing and dropped connections (GH #11)
+;;;
+;;; A plain listener stands in for the service: what the client does when
+;;; the far end closes or garbles a frame needs no SWANK. The SWANK round
+;;; trips are in swank-wire-tests.lisp.
+;;; ==========================================================================
+
+(defun %cyrillic-pri ()
+  "Two two-octet characters and one ASCII one, built from code points so
+this file stays ASCII."
+  (coerce (list (code-char #x41F) (code-char #x440) #\i) 'string))
+
+(defmacro with-listener ((server port) &body body)
+  `(let* ((,server (usocket:socket-listen "127.0.0.1" 0
+                                          :reuse-address t
+                                          :element-type '(unsigned-byte 8)))
+          (,port (usocket:get-local-port ,server)))
+     (unwind-protect (progn ,@body)
+       (usocket:socket-close ,server))))
+
+(defun %accept (server)
+  "The next connection on SERVER, or NIL after two seconds."
+  (when (usocket:wait-for-input server :timeout 2 :ready-only t)
+    (usocket:socket-accept server :element-type '(unsigned-byte 8))))
+
+(defun %write-raw (peer text)
+  (let ((stream (usocket:socket-stream peer)))
+    (write-sequence (map '(vector (unsigned-byte 8)) #'char-code text) stream)
+    (finish-output stream)))
+
+(defun %await-state (conn state)
+  "Poll CONN for up to two seconds until it reaches STATE; return the last
+state seen. The far end's close reaches us asynchronously."
+  (loop repeat 100
+        for seen = (cl-mcp-server.swank-protocol:connection-state conn)
+        until (eq seen state)
+        do (sleep 0.02)
+        finally (return seen)))
+
+(test frame-header-counts-utf-8-octets
+  "Counting characters said 3 here: SWANK read a truncated form and
+dropped the connection"
+  (let ((frame (cl-mcp-server.swank-protocol::%frame (%cyrillic-pri))))
+    (is (string= "000005" (map 'string #'code-char (subseq frame 0 6))))
+    (is (= 11 (length frame))))
+  (is (string= "000007(+ 1 2)"
+               (map 'string #'code-char
+                    (cl-mcp-server.swank-protocol::%frame "(+ 1 2)")))))
+
+(test a-closed-peer-is-seen-without-blocking
+  "LISTEN is NIL at EOF, so a dropped socket read as idle, was reused, and
+failed later as BROKEN-PIPE"
+  (with-listener (server port)
+    (let ((conn (cl-mcp-server.swank-protocol:connect "127.0.0.1" port))
+          (peer (%accept server)))
+      (unwind-protect
+           (progn
+             (is (eq :open
+                     (cl-mcp-server.swank-protocol:connection-state conn)))
+             (usocket:socket-close peer)
+             (is (eq :peer-closed (%await-state conn :peer-closed))))
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
+(defun %drain (peer)
+  "Read whatever PEER has been sent, so that closing it sends FIN, not the
+RST that closing over unread data sends."
+  (let ((stream (usocket:socket-stream peer)))
+    (when (usocket:wait-for-input peer :timeout 2 :ready-only t)
+      (loop while (listen stream) do (read-byte stream)))))
+
+(test a-peer-closing-mid-call-is-reported-at-once
+  "The old LISTEN poll ran out the whole timeout on a cleanly closed socket,
+since LISTEN is NIL at EOF, then blamed a slow form"
+  (with-listener (server port)
+    (cl-mcp-server.remote:register-target "dropper" "127.0.0.1" port
+                                          :mode :read)
+    (let* ((closer (bordeaux-threads:make-thread
+                    (lambda ()
+                      (let ((peer (%accept server)))
+                        (when peer
+                          (%drain peer)
+                          (sleep 0.3)
+                          (usocket:socket-close peer))))))
+           (start (get-internal-real-time))
+           (r (let ((cl-mcp-server.swank-protocol:*call-timeout* 10))
+                (cl-mcp-server.remote:remote-eval "dropper" "(+ 1 2)")))
+           (elapsed (/ (- (get-internal-real-time) start)
+                       internal-time-units-per-second)))
+      (bordeaux-threads:join-thread closer)
+      (is-false (getf r :ok))
+      (is (search "connection lost" (getf r :error)))
+      (is (< elapsed 5) "took ~,1Fs; the timeout was 10s" elapsed)
+      (is (eq :closed (cl-mcp-server.swank-protocol:connection-state
+                       (gethash "dropper"
+                                cl-mcp-server.remote::*connections*)))))
+    (cl-mcp-server.remote:close-connection "dropper")))
+
+(test a-reset-mid-call-is-a-lost-connection
+  "Closing over our unread request sends RST. Arriving while we wait, it
+fails the read with a stream error, which must close the connection
+rather than leak out raw. Arriving earlier, it reads as EOF instead."
+  (with-listener (server port)
+    (let* ((conn (cl-mcp-server.swank-protocol:connect "127.0.0.1" port))
+           (resetter (bordeaux-threads:make-thread
+                      (lambda ()
+                        (let ((peer (%accept server)))
+                          ;; No wait-for-input here: its LISTEN would
+                          ;; read our request into Lisp's buffer, and an
+                          ;; empty kernel queue closes with FIN.
+                          (when peer
+                            (sleep 0.3)
+                            (usocket:socket-close peer)))))))
+      (unwind-protect
+           (signals cl-mcp-server.swank-protocol:swank-connection-lost
+             (cl-mcp-server.swank-protocol:rex conn "(+ 1 2)" :timeout 5))
+        (bordeaux-threads:join-thread resetter)
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
+(test a-junk-header-is-a-lost-connection-not-a-parse-error
+  "A header read from mid-payload leaked SIMPLE-PARSE-ERROR and left the
+desynchronised connection cached (GH #11, first comment)"
+  (with-listener (server port)
+    (let ((conn (cl-mcp-server.swank-protocol:connect "127.0.0.1" port))
+          (peer (%accept server)))
+      (unwind-protect
+           (progn
+             (%write-raw peer "E900(:")
+             (signals cl-mcp-server.swank-protocol:swank-connection-lost
+               (cl-mcp-server.swank-protocol:rex conn "(+ 1 2)" :timeout 2))
+             (is (eq :closed
+                     (cl-mcp-server.swank-protocol:connection-state conn))))
+        (usocket:socket-close peer)
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
+(test a-signed-header-is-not-a-frame
+  "PARSE-INTEGER reads +00002 as 2: it would swallow two octets of garbage
+and wait out the timeout rather than report the stream lost"
+  (with-listener (server port)
+    (let ((conn (cl-mcp-server.swank-protocol:connect "127.0.0.1" port))
+          (peer (%accept server)))
+      (unwind-protect
+           (progn
+             (%write-raw peer "+00002ab")
+             (signals cl-mcp-server.swank-protocol:swank-connection-lost
+               (cl-mcp-server.swank-protocol:rex conn "(+ 1 2)" :timeout 2)))
+        (usocket:socket-close peer)
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
+(test a-write-to-a-dropped-socket-is-a-lost-connection
+  "BROKEN-PIPE leaked out raw, and the dead socket stayed cached. The first
+write after the far end closes can succeed, so keep writing."
+  (with-listener (server port)
+    (let ((conn (cl-mcp-server.swank-protocol:connect "127.0.0.1" port)))
+      (usocket:socket-close (%accept server))
+      (unwind-protect
+           (let ((lost
+                   (loop repeat 50
+                         thereis
+                         (handler-case
+                             (progn (cl-mcp-server.swank-protocol::%send
+                                     conn "(x)")
+                                    (sleep 0.02)
+                                    nil)
+                           (cl-mcp-server.swank-protocol:swank-connection-lost
+                               ()
+                             t)))))
+             (is-true lost)
+             (is (eq :closed
+                     (cl-mcp-server.swank-protocol:connection-state conn))))
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
+(test connection-for-replaces-a-socket-the-service-closed
+  "remote-connect on a name whose socket had died failed on that socket
+instead of opening a new one"
+  (with-listener (server port)
+    (cl-mcp-server.remote:register-target "replaced" "127.0.0.1" port
+                                          :mode :read)
+    (let ((tg (cl-mcp-server.remote::find-target "replaced")))
+      (multiple-value-bind (c1 r1) (cl-mcp-server.remote::connection-for tg)
+        (is-false r1)
+        (usocket:socket-close (%accept server))
+        (is (eq :peer-closed (%await-state c1 :peer-closed))
+            "the far end's close must land before the replacement is tested")
+        (multiple-value-bind (c2 r2)
+            (cl-mcp-server.remote::connection-for tg)
+          (let ((peer (%accept server)))
+            (is-true r2)
+            (is (not (eq c1 c2)))
+            (is-true peer "the replacement must reach the service")
+            (is (eq :closed
+                    (cl-mcp-server.swank-protocol:connection-state c1))
+                "our end of the dead socket must be closed too")
+            (is (eq c2 (cl-mcp-server.remote::connection-for tg))
+                "an open connection is reused")
+            (when peer (usocket:socket-close peer))))))
+    (cl-mcp-server.remote:close-connection "replaced")))

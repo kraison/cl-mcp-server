@@ -223,15 +223,20 @@ tier permits nothing."
 ;;; ==========================================================================
 
 (defun connection-for (target)
-  "Reuse or open a connection to TARGET."
+  "Reuse or open a connection to TARGET. The second value is true when the
+service had closed the cached one, which a restart does; nothing was sent
+on it, so replacing it cannot run a form twice (GH #11)."
   (let* ((name (target-name target))
-         (existing (bt:with-lock-held (*lock*) (gethash name *connections*))))
-    (if (and existing (cl-mcp-server.swank-protocol::connected-p existing))
+         (existing (bt:with-lock-held (*lock*) (gethash name *connections*)))
+         (state (cl-mcp-server.swank-protocol:connection-state existing)))
+    (if (eq state :open)
         existing
         (let ((conn (cl-mcp-server.swank-protocol:connect
                      (target-host target) (target-port target))))
+          (when (eq state :peer-closed)
+            (cl-mcp-server.swank-protocol:disconnect existing))
           (bt:with-lock-held (*lock*) (setf (gethash name *connections*) conn))
-          conn))))
+          (values conn (eq state :peer-closed))))))
 
 (defun close-connection (name)
   (let ((conn (bt:with-lock-held (*lock*) (gethash name *connections*))))
@@ -416,13 +421,15 @@ target ~A is in ~(~A~) mode.~%~%Run it yourself if you intend it:~%  ~A~
                                                   :lifecycle)))))
              (t
               (handler-case
-                  (multiple-value-bind (result output)
-                      (cl-mcp-server.swank-protocol:rex
-                       (connection-for target)
-                       (%wrap-with-print-limits form target)
-                       :package package)
-                    (record target-name tier form :ok)
-                    (list :ok t :tier tier :result result :output output))
+                  (multiple-value-bind (conn reconnected)
+                      (connection-for target)
+                    (multiple-value-bind (result output)
+                        (cl-mcp-server.swank-protocol:rex
+                         conn (%wrap-with-print-limits form target)
+                         :package package)
+                      (record target-name tier form :ok)
+                      (list :ok t :tier tier :result result :output output
+                            :reconnected reconnected)))
                 (cl-mcp-server.swank-protocol:swank-error (e)
                   ;; One clause for the whole SWANK-ERROR family, because
                   ;; SWANK-ABORTED is a subclass and a form that kills the

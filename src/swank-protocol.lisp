@@ -3,7 +3,8 @@
 
 (in-package #:cl-mcp-server.swank-protocol)
 
-;;; Wire format: 6 hex digits of payload length, then an S-expression.
+;;; Wire format: 6 hex digits of the payload's length in UTF-8 OCTETS, then
+;;; the payload, an S-expression. Characters are not octets (GH #11).
 ;;; Request:  (:emacs-rex FORM "PACKAGE" THREAD ID)
 ;;; Reply:    (:return (:ok VALUE) ID) | (:return (:abort REASON) ID)
 ;;; Async:    (:write-string ...) (:debug ...) (:ping THREAD TAG) ...
@@ -31,6 +32,13 @@ than a slow one, so this is deliberately short.")
                      (or (swank-aborted-condition c)
                          (swank-error-detail c))))))
 
+(define-condition swank-connection-lost (swank-error) ()
+  (:documentation "The stream failed, closed or lost its framing. The
+connection is already closed when this is signalled.")
+  (:report (lambda (c s)
+             (format s "SWANK: connection lost ~A. It is closed; the next ~
+call to this target opens a new one." (swank-error-detail c)))))
+
 ;;; ==========================================================================
 ;;; Connection
 ;;; ==========================================================================
@@ -47,7 +55,8 @@ than a slow one, so this is deliberately short.")
       (let* ((socket (usocket:socket-connect
                       ;; Belt to register-target's coercion (GH #7).
                       (coerce host 'simple-string) port
-                      :element-type 'character
+                      ;; Octets: the frame header counts them (GH #11).
+                      :element-type '(unsigned-byte 8)
                       :timeout *connect-timeout*))
              (stream (usocket:socket-stream socket)))
         (make-swank-connection :socket socket :stream stream))
@@ -64,41 +73,97 @@ than a slow one, so this is deliberately short.")
   (setf (conn-socket conn) nil (conn-stream conn) nil)
   :disconnected)
 
+(defun connection-state (conn)
+  "One of :OPEN, :PEER-CLOSED (the service closed its end; our socket is
+still open) or :CLOSED. Does not block."
+  (cond ((not (and conn (conn-socket conn)
+                   (open-stream-p (conn-stream conn))))
+         :closed)
+        ((%peer-closed-p conn) :peer-closed)
+        (t :open)))
+
 (defun connected-p (conn)
-  (and conn (conn-socket conn) (open-stream-p (conn-stream conn))))
+  (eq :open (connection-state conn)))
+
+(defun %peer-closed-p (conn)
+  "Readable, yet LISTEN finds nothing: EOF. LISTEN alone returns NIL at
+EOF, so a dropped socket used to pass for an idle one (GH #11)."
+  (handler-case
+      (and (usocket:wait-for-input (conn-socket conn)
+                                   :timeout 0 :ready-only t)
+           (not (listen (conn-stream conn))))
+    (error () t)))
 
 ;;; ==========================================================================
 ;;; Framing
 ;;; ==========================================================================
 
+(defun %lose (conn context &optional cause)
+  "Close CONN and signal SWANK-CONNECTION-LOST. A frame that failed
+halfway leaves the stream mid-message; nothing after it can be read."
+  (disconnect conn)
+  (error 'swank-connection-lost
+         :detail (format nil "~A~@[ (~A)~]" context
+                         (typecase cause
+                           (null nil)
+                           (string cause)
+                           (t (format nil "~A: ~A" (type-of cause) cause))))))
+
+(defmacro %losing-connection-on-error ((conn context) &body body)
+  "Run BODY; any error but our own closes CONN as SWANK-CONNECTION-LOST."
+  `(handler-bind ((error (lambda (e)
+                           (unless (typep e 'swank-error)
+                             (%lose ,conn ,context e)))))
+     ,@body))
+
+(defun %frame (payload)
+  "PAYLOAD as one SWANK frame, an octet vector: the header is the UTF-8
+length in octets, which a character count undercounts (GH #11)."
+  (let ((body (sb-ext:string-to-octets payload :external-format :utf-8)))
+    (concatenate '(vector (unsigned-byte 8))
+                 (map 'vector #'char-code
+                      (format nil "~6,'0X" (length body)))
+                 body)))
+
 (defun %send (conn payload)
-  (let ((stream (conn-stream conn)))
-    (format stream "~6,'0X" (length payload))
-    (write-string payload stream)
-    (finish-output stream)))
+  (let ((frame (%frame payload))
+        (stream (conn-stream conn)))
+    (%losing-connection-on-error (conn "while sending the request")
+      (write-sequence frame stream)
+      (finish-output stream))))
+
+(defun %read-octets (conn n where)
+  "N octets from CONN, or SWANK-CONNECTION-LOST if the service closes
+first. WHERE is :HEADER or :BODY."
+  (let* ((buffer (make-array n :element-type '(unsigned-byte 8)))
+         (got (read-sequence buffer (conn-stream conn))))
+    (cond ((= got n) buffer)
+          ((and (zerop got) (eq where :header))
+           (%lose conn "while waiting for the reply: the service closed it"))
+          (t (%lose conn (format nil "mid-~(~A~): the service closed it"
+                                 where))))))
+
+(defun %frame-length (conn header)
+  "HEADER's six hex digits as an integer. Anything else means we are no
+longer at a frame boundary, so the connection is lost."
+  (if (every (lambda (octet) (digit-char-p (code-char octet) 16)) header)
+      (parse-integer (map 'string #'code-char header) :radix 16)
+      (%lose conn (format nil "reading a frame header: ~S is not one"
+                          (map 'string #'code-char header)))))
 
 (defun %read-message (conn &key (timeout *call-timeout*))
-  "Read one framed message, or NIL on timeout."
-  (let ((stream (conn-stream conn)))
-    (unless (%wait-readable stream timeout)
+  "Read one framed message as a string, or NIL on timeout. Signals
+SWANK-CONNECTION-LOST if the service closes or the framing breaks."
+  (%losing-connection-on-error (conn "while reading the reply")
+    ;; Wakes on EOF too, where LISTEN would poll out the whole timeout.
+    (unless (usocket:wait-for-input (conn-socket conn)
+                                    :timeout timeout :ready-only t)
       (return-from %read-message nil))
-    (let ((header (make-string 6)))
-      (unless (= 6 (read-sequence header stream))
-        (error 'swank-error :detail "connection closed mid-header"))
-      (let* ((len (parse-integer header :radix 16))
-             (body (make-string len)))
-        (unless (= len (read-sequence body stream))
-          (error 'swank-error :detail "connection closed mid-body"))
-        body))))
-
-(defun %wait-readable (stream seconds)
-  "Poll for input. LISTEN alone would spin; this sleeps between checks."
-  (let ((deadline (+ (get-internal-real-time)
-                     (* seconds internal-time-units-per-second))))
-    (loop
-      (when (listen stream) (return t))
-      (when (> (get-internal-real-time) deadline) (return nil))
-      (sleep 0.01))))
+    (let* ((header (%read-octets conn 6 :header))
+           (body (%read-octets conn (%frame-length conn header) :body)))
+      (sb-ext:octets-to-string
+       body :external-format (list :utf-8
+                                   :replacement (code-char #xFFFD))))))
 
 ;;; ==========================================================================
 ;;; RPC
