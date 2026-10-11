@@ -104,6 +104,10 @@ prod?", and the feature should not exist without one.
 - Connect in `read` mode; escalate deliberately, not by default.
 - Look before touching: `remote-inspect` a value beats guessing from source.
 - One armed target at a time, and disarm as soon as the change is verified.
+- `connection lost` mid-call means the form may or may not have run: check
+  before re-sending anything that is not idempotent. A socket the service
+  closed *between* calls is replaced and the result says so; nothing ran
+  twice, but a restarted image has lost what the session left in it.
 - Finish with `remote-disconnect` + `cleanup` — an abrupt disconnect is the
   normal case (a timeout, a dropped socket, a killed agent), so anything
   left on the service is our fault.

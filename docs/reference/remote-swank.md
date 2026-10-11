@@ -144,6 +144,33 @@ Output printed by the form is captured and shown under `[stdout]`. A remote
 error is reported with the restarts the remote image offered — informational
 only; invoking them is not yet supported (see Limitations).
 
+### When the connection drops
+
+Each target keeps one SWANK socket. There are two cases, told apart because
+in one of them your form may have run:
+
+- **The service closed the socket between calls**, as a restart does. The
+  next call notices before it sends anything, opens a new socket, and says
+  so above the result:
+
+  ```
+  [The service had closed the previous connection, as a restart does; this
+  call opened a new one.]
+  => 5
+  ```
+
+  Nothing was sent on the dead socket, so nothing runs twice. If the image
+  restarted, whatever the session left in it (definitions, the inspector
+  registry) is gone. `remote-connect` on the name recovers the same way.
+
+- **It closed, reset or garbled a frame during a call.** The call fails at
+  once with `SWANK: connection lost …`, the socket is closed, and the next
+  call opens a new one. The form may or may not have run: check before
+  re-sending anything that is not idempotent.
+
+Frames are counted in UTF-8 octets, as SWANK counts them, so forms and
+values with non-ASCII text round-trip (GH #11).
+
 ## remote-inspect
 
 Inspect a **value** on the service — slots, elements, hash entries — the way

@@ -152,20 +152,27 @@ Test helpers in `tests/packages.lisp`:
 Test suites: `error-format-tests`, `session-tests`, `evaluator-tests`, `tools-tests`,
 `introspection-tests`, `asdf-tools-tests`, `profiling-tools-tests`, `paren-tools-tests`,
 `file-tools-tests`, `hyperspec-tests`, `quicklisp-tools-tests`, `telos-tools-tests`,
-`remote-config-tests`, `remote-tests`, `remote-inspect-tests`, `integration-tests`.
+`remote-config-tests`, `remote-tests`, `remote-inspect-tests`, `integration-tests`,
+`swank-wire-tests`.
 
-### Two test systems, and why
+### Three test systems, and why
 
 | System | Depends on | Files |
 |--------|-----------|-------|
 | `cl-mcp-server/tests` | `cl-mcp-server`, `fiveam` | the 15 core files |
 | `cl-mcp-server/tests-telos` | `cl-mcp-server/tests`, `telos` | `telos-fixture`, `telos-tools-tests` |
+| `cl-mcp-server/tests-swank` | `cl-mcp-server/tests`, `swank` | `swank-wire-tests` |
 
-`asdf:test-system :cl-mcp-server` runs both when telos is installed and the
-core suite alone when it is not, printing a line saying the telos suites were
-skipped. The choice is made when the `.asd` is *read*, so the telos suites
-are a real `:in-order-to` dependency rather than a load inside `perform` —
-ASDF deprecates the latter as recursive `OPERATE`.
+`asdf:test-system :cl-mcp-server` runs the telos and swank suites when those
+libraries are installed and skips each one that is not, printing a line
+saying so. The choice is made when the `.asd` is *read*, so they are real
+`:in-order-to` dependencies rather than a load inside `perform` — ASDF
+deprecates the latter as recursive `OPERATE`.
+
+`swank-wire-tests` starts a real SWANK server in the test image on an
+ephemeral port and drives the client against it. A fake server written from
+our reading of the protocol would share our misreading of it, and the octet
+framing bug (#11) was exactly that.
 
 ### Do not trust the check count
 
