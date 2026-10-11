@@ -320,6 +320,7 @@
   (:export
    #:armable-target-p
    #:armable-targets
+   #:armable-pin
    #:blackboard-target
    #:reload-config
    #:config-error
@@ -350,7 +351,8 @@
    #:entry-detail
    #:arm-target
    #:disarm-target
-   #:target-armed-p))
+   #:target-armed-p
+   #:pin-mismatch))
 
 (defpackage #:cl-mcp-server.remote-inspect
   (:use #:cl)

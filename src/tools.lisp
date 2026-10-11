@@ -12,6 +12,24 @@
 (defparameter *read-only-note*
   "Mutating and lifecycle forms will be refused.")
 
+(defun %probe-new-target (name host port mode)
+  "remote-connect's answer once NAME is registered: is it reachable?"
+  (let ((probe (cl-mcp-server.remote:remote-eval
+                name "(lisp-implementation-version)")))
+    (if (getf probe :ok)
+        (values
+         (format nil "Target ~A registered: ~A:~D, ~(~A~) mode.~%~
+Reachable; remote SBCL ~A.~%~%~A"
+                 name host port mode (getf probe :result)
+                 (if (cl-mcp-server.remote:target-armed-p
+                      (cl-mcp-server.remote::find-target name))
+                     *armed-note*
+                     *read-only-note*))
+         nil)
+        (values (format nil "Target ~A registered but NOT reachable:~%  ~A"
+                        name (getf probe :error))
+                t))))
+
 ;;; ==========================================================================
 ;;; Tool Definitions
 ;;; ==========================================================================
@@ -428,28 +446,17 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                        (host (or (arg "host") "127.0.0.1"))
                        (port (arg "port"))
                        (mode (cond ((equal (arg "mode") "observe") :observe)
-                                   (t :read))))
-                  (cl-mcp-server.remote:register-target name host port
-                                                        :mode mode)
-                  (let ((probe (cl-mcp-server.remote:remote-eval
-                                name "(lisp-implementation-version)")))
-                    (if (getf probe :ok)
-                        (values
-                         (format nil
-                          "Target ~A registered: ~A:~D, ~(~A~) mode.~%~
-Reachable; remote SBCL ~A.~%~%~A"
-                                 name host port mode (getf probe :result)
-                                 (if (cl-mcp-server.remote:target-armed-p
-                                      (cl-mcp-server.remote::find-target
-                                       name))
-                                     *armed-note*
-                                     *read-only-note*))
-                         nil)
-                        (values
-                         (format nil
-                          "Target ~A registered but NOT reachable:~%  ~A"
-                                 name (getf probe :error))
-                         t)))))))
+                                   (t :read)))
+                       (refusal
+                         (handler-case
+                             (progn (cl-mcp-server.remote:register-target
+                                     name host port :mode mode)
+                                    nil)
+                           (cl-mcp-server.remote:pin-mismatch (e)
+                             (princ-to-string e)))))
+                  (if refusal
+                      (values refusal t)
+                      (%probe-new-target name host port mode))))))
 
   (cl-mcp:register-tool server "remote-eval"
    :description (format nil "Evaluate a form on a named remote target. The ~
@@ -498,7 +505,9 @@ previous connection, as a restart does; this call opened a new one.]~%~]~
   (cl-mcp:register-tool server "remote-targets"
    :description (format nil "List registered SWANK targets with their host, ~
                             port and mode. Use this to see what the agent can ~
-                            currently reach.")
+                            currently reach. [pinned] marks a name the ~
+                            armable-targets config ties to that endpoint; ~
+                            only those can be armed.")
    :schema `(("type" . "object")
              ("properties" . ,(make-hash-table :test #'equal)))
    :handler (lambda (args)
@@ -509,11 +518,16 @@ previous connection, as a restart does; this call opened a new one.]~%~]~
                     (with-output-to-string (s)
                       (format s "~D target~:P:~%~%" (length targets))
                       (dolist (tg targets)
-                        (format s "  ~A~30T~A:~D  ~(~A~)~:[~; [ARMED]~]~%"
+                        (format s "  ~A~30T~A:~D  ~(~A~)~:[~; [pinned]~]~
+~:[~; [ARMED]~]~%"
                                 (cl-mcp-server.remote:target-name tg)
                                 (cl-mcp-server.remote:target-host tg)
                                 (cl-mcp-server.remote:target-port tg)
                                 (cl-mcp-server.remote:target-mode tg)
+                                ;; Registration refuses a pin mismatch, so a
+                                ;; pin here is this endpoint's (GH #12).
+                                (cl-mcp-server.remote-config:armable-pin
+                                 (cl-mcp-server.remote:target-name tg))
                                 (cl-mcp-server.remote:target-armed-p tg))))))))
 
   (cl-mcp:register-tool server "remote-ledger"
@@ -590,8 +604,8 @@ previous connection, as a restart does; this call opened a new one.]~%~]~
    :description (format nil "Arm a target for development: permits ~
                             redefinition, state changes and lifecycle forms ~
                             on a RUNNING service. Refused unless the target ~
-                            is allowlisted in ~
-                            ~~/.config/cl-mcp-server/config.sexp or ~
+                            is allowlisted, and pinned to its host and port, ~
+                            in ~~/.config/cl-mcp-server/config.sexp or ~
                             CL_MCP_ARMABLE_TARGETS -- the allowlist lives ~
                             outside the session, so this tool cannot be ~
                             talked into arming a target you never named (it ~
@@ -1865,7 +1879,8 @@ guesses cost far more. One lookup is cheaper than one wrong guess.
 | wonder what you did to a service | `remote-ledger` | every call, refusals ~
    included |
 | inspect a value on a service | `remote-inspect` | one level; retains nothing |
-| redefine on a live service | `remote-arm` first | needs an allowlist |
+| redefine on a live service | `remote-arm` first | needs a pinned ~
+   allowlist entry |
 | finish with a service | `remote-disconnect` cleanup=true | sweeps residue |
 
 The image knows. Ask it.

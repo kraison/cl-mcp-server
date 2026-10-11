@@ -55,16 +55,20 @@ the real audit.
 
 `remote-arm <target>` puts a target into `developer` mode, permitting
 redefinition, state changes and lifecycle forms. It is **refused unless the
-target is allowlisted outside the session**, in
+target is allowlisted outside the session and pinned to its endpoint**, in
 `~/.config/cl-mcp-server/config.sexp`:
 
 ```lisp
-(:armable-targets ("staging" "my-dev-box"))
+(:armable-targets (("staging" :host "10.0.0.5" :port 4005)
+                   ("my-dev-box" :port 4107)))      ; host defaults to 127.0.0.1
 ```
 
-or `CL_MCP_ARMABLE_TARGETS` as a comma-separated list, which *replaces* the
-file rather than merging. The allowlist lives outside the session on purpose:
-it stops the arming tool being talked into arming a target nobody named.
+or `CL_MCP_ARMABLE_TARGETS` as a comma-separated list of `name@host:port`,
+which *replaces* the file rather than merging. The allowlist lives outside
+the session on purpose: it stops the arming tool being talked into arming a
+target nobody named. The pin is what makes a name mean one image: a bare
+name is listed but **not armable**, and `remote-connect` refuses a pinned
+name at any other host or port. `remote-targets` marks pinned names.
 
 **There is no expiry.** The target stays armed until `remote-disarm`, which
 restores the mode it had before. `remote-targets` marks armed targets;

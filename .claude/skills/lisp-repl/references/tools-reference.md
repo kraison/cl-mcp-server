@@ -188,12 +188,15 @@ Takes `target`. Drops the handle registry. `remote-disconnect` with
 the ledger). It puts the target into `developer` mode, permitting
 redefinition, state changes and lifecycle forms.
 
-**Refused unless the target is allowlisted outside the session** — in
-`~/.config/cl-mcp-server/config.sexp` as `(:armable-targets ("name" ...))`,
-or in `CL_MCP_ARMABLE_TARGETS` as a comma-separated list, which replaces the
-file rather than merging. This stops the arming tool being talked into
-arming a target you never named — it is not a sandbox, since `evaluate-lisp`
-runs in the same image.
+**Refused unless the target is allowlisted outside the session, pinned to
+its endpoint** — in `~/.config/cl-mcp-server/config.sexp` as
+`(:armable-targets (("name" :host "127.0.0.1" :port 4107) ...))`, or in
+`CL_MCP_ARMABLE_TARGETS` as a comma-separated list of `name@host:port`,
+which replaces the file rather than merging. A bare name is listed but not
+armable, since the session binds names to ports, and `remote-connect`
+refuses a pinned name at any other endpoint. This stops the arming tool
+being talked into arming a target you never named — it is not a sandbox,
+since `evaluate-lisp` runs in the same image.
 
 **There is no expiry.** The target stays armed until `remote-disarm`, which
 takes `target` and restores the mode it had before arming. `remote-targets`

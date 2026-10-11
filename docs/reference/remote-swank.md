@@ -40,7 +40,9 @@ against accidents, not a defence against a determined form.
 ### 1. Named targets
 
 Tools take a target **name**, never a host and port. A port cannot be typo'd
-into production, and the name appears in every ledger line.
+into production, and the name appears in every ledger line. A name the
+allowlist pins to an endpoint cannot be registered anywhere else; see
+[The allowlist](#the-allowlist).
 
 ### 2. Tiering by form inspection
 
@@ -253,6 +255,15 @@ does it for you.
 ## remote-targets
 
 No parameters. Lists registered targets with host, port and mode.
+`[pinned]` marks a name the allowlist ties to that endpoint, the only kind
+that can be armed; `[ARMED]` marks an armed one.
+
+```
+2 targets:
+
+  dev                         127.0.0.1:4107  developer [pinned] [ARMED]
+  prod                        10.0.0.9:4005  read
+```
 
 ## remote-ledger
 
@@ -349,9 +360,10 @@ them.
 ## Mutate mode
 
 Everything above is read-only. Mutation is off until a target is **armed**,
-and a target can only be armed if it is named in an allowlist that lives
-outside the session — so the arming tool cannot be talked into arming a
-target you never named. Like the classifier, this stops accidents, not an
+and a target can only be armed if an allowlist that lives outside the
+session names it **and pins it to its host and port** — so the arming tool
+cannot be talked into arming a target you never named, nor an image you
+never meant. Like the classifier, this stops accidents, not an
 agent writing arbitrary Lisp: `evaluate-lisp` runs in this same image and
 can reach these internals directly. The ledger remains the audit.
 
@@ -361,12 +373,32 @@ A config file, overridden by an environment variable:
 
 ```lisp
 ;; ~/.config/cl-mcp-server/config.sexp
-(:armable-targets ("scratch" "my-dev-image"))
+(:armable-targets (("scratch" :host "127.0.0.1" :port 4107)
+                   ("my-dev-image" :port 4108)))   ; host defaults to 127.0.0.1
 ```
 
 ```bash
-CL_MCP_ARMABLE_TARGETS="scratch,my-dev-image"
+CL_MCP_ARMABLE_TARGETS="scratch@127.0.0.1:4107,my-dev-image@127.0.0.1:4108"
 ```
+
+**Why the pin.** `remote-connect` lets a session bind any name to any host
+and port. With names alone, a session could register `scratch` at the port
+of an image that is not allowlisted, arm it, and change the wrong image,
+while the ledger said `scratch`. The allowlist was outside the session but
+the meaning of each name was not (GH #12). A pin puts the meaning outside
+too:
+
+- `remote-connect` refuses a pinned name at any other host or port, and the
+  refusal goes in the ledger.
+- `remote-arm` checks the target's endpoint against the pin again.
+- A **bare name** (`"scratch"`, or `scratch` in the variable) is still read,
+  but it is **not armable**: the refusal prints the entry to add, with the
+  target's current endpoint filled in for you to check.
+
+Hosts are compared as written: a pin on `localhost` does not match a
+connection to `127.0.0.1`, and the mismatch is refused. A malformed entry —
+no `:port`, an unknown key such as `:hots`, or a name listed twice — is a
+config error, not a skipped line.
 
 The environment **replaces** the file's list rather than merging with it,
 because merge semantics cannot express removal — with merge there is no
@@ -377,8 +409,10 @@ A missing file is not an error; it means nothing is armable, which is the
 right default. A malformed file **is** an error, surfaced rather than
 swallowed: a config that fails to parse must not silently become a config
 that permits nothing, because the two are indistinguishable at the moment it
-matters. The file is read with `*read-eval*` bound to `nil` — `#.` in a
-config file would be arbitrary code execution at startup.
+matters. Since `remote-connect` checks pins, a malformed file refuses every
+connect too, read-only ones included, until it is fixed: an unreadable pin
+cannot be honoured. The file is read with `*read-eval*` bound to `nil` —
+`#.` in a config file would be arbitrary code execution at startup.
 
 ### remote-arm
 

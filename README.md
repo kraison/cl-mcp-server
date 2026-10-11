@@ -484,7 +484,7 @@ often than "when warnings are present" suggests.
 - Forms are classified by textual inspection into observe / read / redefine / state / lifecycle tiers, and refused unless the target's mode permits the tier
 - `remote-ledger` records every form sent, refusals included, with timestamps
 - `remote-inspect` / `remote-inspect-clear` — inspect a value on the service, as a transcript retaining nothing or via weak, navigable handles
-- `remote-arm` / `remote-disarm` — permit mutation on a target, then revoke it. Refused unless the target is allowlisted in `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which live outside the session on purpose
+- `remote-arm` / `remote-disarm` — permit mutation on a target, then revoke it. Refused unless the target is allowlisted, and pinned to its host and port, in `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which live outside the session on purpose
 - Print limits are bound *in the remote image*, so a large value cannot flood or stall the service
 - See [Remote SWANK](docs/reference/remote-swank.md)
 

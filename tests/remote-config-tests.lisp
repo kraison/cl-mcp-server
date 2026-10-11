@@ -103,3 +103,65 @@ registered. The environment override does not reach this key."
     (is (null (cl-mcp-server.remote-config:blackboard-target))))
   (with-config (:file nil :env :unset)
     (is (null (cl-mcp-server.remote-config:blackboard-target)))))
+
+;;; ==========================================================================
+;;; Pins (GH #12)
+;;; ==========================================================================
+
+(test file-pins-a-name-to-an-endpoint
+  "A pinned entry and a bare one, side by side: both are listed, only the
+pinned one has an endpoint"
+  (with-config (:file "(:armable-targets
+                         ((\"dev\" :host \"10.0.0.2\" :port 4107) \"bare\"))"
+                :env :unset)
+    (is (equal '("10.0.0.2" 4107)
+               (multiple-value-list
+                (cl-mcp-server.remote-config:armable-pin "dev"))))
+    (is (null (cl-mcp-server.remote-config:armable-pin "bare")))
+    (is-true (cl-mcp-server.remote-config:armable-target-p "bare"))
+    (is (equal '("dev" "bare")
+               (cl-mcp-server.remote-config:armable-targets)))))
+
+(test a-pin-without-a-host-means-loopback
+  "The same default as remote-connect's"
+  (with-config (:file "(:armable-targets ((\"dev\" :port 4107)))"
+                :env :unset)
+    (is (equal '("127.0.0.1" 4107)
+               (multiple-value-list
+                (cl-mcp-server.remote-config:armable-pin "dev"))))))
+
+(test malformed-pins-are-reported-not-swallowed
+  "Each would otherwise pin the wrong endpoint or none: :hots is a typo
+that would silently mean 127.0.0.1"
+  (dolist (entry '("(\"dev\" :host \"h\")"
+                   "(\"dev\" :port \"4107\")"
+                   "(\"dev\" :hots \"h\" :port 4107)"
+                   "(\"dev\" :port)"
+                   "(\"dev\" :port 0)"))
+    (signals cl-mcp-server.remote-config:config-error
+      (with-config (:file (format nil "(:armable-targets (~A))" entry)
+                    :env :unset)
+        nil))))
+
+(test a-name-listed-twice-is-an-error
+  "Two pins for one name: which endpoint it means is unknowable"
+  (signals cl-mcp-server.remote-config:config-error
+    (with-config (:file "(:armable-targets (\"dev\"
+                                            (\"dev\" :port 4107)))"
+                  :env :unset)
+      nil)))
+
+(test env-pins-with-name-at-host-colon-port
+  (with-config (:file nil :env "dev@10.0.0.2:4107, bare")
+    (is (equal '("10.0.0.2" 4107)
+               (multiple-value-list
+                (cl-mcp-server.remote-config:armable-pin "dev"))))
+    (is (null (cl-mcp-server.remote-config:armable-pin "bare")))
+    (is (equal '("dev" "bare")
+               (cl-mcp-server.remote-config:armable-targets)))))
+
+(test malformed-env-pins-are-reported
+  (dolist (env '("dev@10.0.0.2" "dev@10.0.0.2:" "dev@:4107" "@h:4107"
+                 "dev@h:port" "dev@h:-1"))
+    (signals cl-mcp-server.remote-config:config-error
+      (with-config (:file nil :env env) nil))))

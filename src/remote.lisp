@@ -23,6 +23,21 @@
   (max-print-length 200)
   (max-print-level 5))
 
+(define-condition pin-mismatch (error)
+  ((name :initarg :name :reader pin-mismatch-name)
+   (detail :initarg :detail :reader pin-mismatch-detail))
+  (:report (lambda (c s) (write-string (pin-mismatch-detail c) s))))
+
+(defun %pin-mismatch (name host port)
+  "Why NAME may not mean HOST:PORT, or NIL when it may. A pinned name means
+one endpoint; the session cannot rebind it (GH #12)."
+  (multiple-value-bind (pin-host pin-port)
+      (cl-mcp-server.remote-config:armable-pin name)
+    (when (and pin-port
+               (not (and (string= host pin-host) (eql port pin-port))))
+      (format nil "~A is pinned to ~A:~D in the armable-targets config, ~
+not ~A:~D." name pin-host pin-port host port))))
+
 (defun register-target (name host port &key (mode :observe)
                                             (max-print-length 200))
   "Register a named target. Names, not raw host/port, are what tools accept:
@@ -32,12 +47,21 @@ Re-registering an existing target UPDATES it rather than replacing it, so a
 reconnect does not silently drop arming. Replacing the struct would leave
 the ledger showing an :arm with no :disarm while the target was in fact
 unarmed -- the audit and reality disagreeing in the one artifact meant to
-settle it."
+settle it.
+
+Signals PIN-MISMATCH, registering nothing, when NAME is pinned elsewhere."
   ;; The MCP JSON layer hands over fill-pointered strings, and usocket's
   ;; SBCL path declares SIMPLE-STRING for the host -- store it simple or
   ;; every registry connect dies with a masked TYPE-ERROR (GH #7).
   (let ((stale nil)
         (host (coerce host 'simple-string)))
+    (let ((mismatch (%pin-mismatch name host port)))
+      (when mismatch
+        (record name :connect "" :refused mismatch)
+        (error 'pin-mismatch
+               :name name
+               :detail (format nil "Refused: ~A~%~%A pinned name means one ~
+image. Register this one under another name." mismatch))))
     (bt:with-lock-held (*lock*)
       (let ((existing (gethash name *targets*)))
         (cond
@@ -257,31 +281,52 @@ on it, so replacing it cannot run a form twice (GH #11)."
 (defun target-armed-p (target)
   (and (target-pre-arm-mode target) t))
 
+(defun %pin-advice (name host port)
+  "How to pin NAME to HOST:PORT, for a refusal."
+  (format nil "Pin it in ~~/.config/cl-mcp-server/config.sexp, if ~A:~D is ~
+the image you mean:~%  (:armable-targets ((~S :host ~S :port ~D)))~%~%or ~
+in CL_MCP_ARMABLE_TARGETS as ~A@~A:~D. The allowlist lives outside the ~
+session deliberately." host port name host port name host port))
+
+(defun %refuse-arm (name why message)
+  (record name :arm "" :refused why)
+  (values nil message))
+
 (defun arm-target (name &optional reason)
-  "Put NAME into :developer mode. Returns (values target message)."
+  "Put NAME into :developer mode. Returns (values target message); a NIL
+target means refused. Only a name pinned to the endpoint NAME is
+registered at can be armed (GH #12)."
   (let ((target (find-target name)))
-    (cond
-      ((null target)
-       (values nil (format nil "No target named ~A. Connect it first." name)))
-      ((not (cl-mcp-server.remote-config:armable-target-p name))
-       (record name :arm "" :refused
-               (format nil "~A is not armable" name))
-       (values nil
-               (format nil "Target ~A is not armable.~%~%Add it to ~
-~~/.config/cl-mcp-server/config.sexp:~%  (:armable-targets (~S))~%~%~
-or set CL_MCP_ARMABLE_TARGETS. The allowlist lives outside the session ~
-deliberately." name name)))
-      ((target-armed-p target)
-       (values target (format nil "~A is already armed." name)))
-      (t
-       (bt:with-lock-held (*lock*)
-         (setf (target-pre-arm-mode target) (target-mode target)
-               (target-mode target) :developer))
-       (record name :arm "" :armed reason)
-       (values target
-               (format nil "~A is ARMED for development.~%~%Redefinition, ~
-state changes and lifecycle forms are now permitted. It stays armed until ~
-you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))
+    (if (null target)
+        (values nil (format nil "No target named ~A. Connect it first." name))
+        (let ((host (target-host target))
+              (port (target-port target)))
+          (cond
+            ((not (cl-mcp-server.remote-config:armable-target-p name))
+             (%refuse-arm name (format nil "~A is not armable" name)
+                          (format nil "Target ~A is not armable.~%~%~A"
+                                  name (%pin-advice name host port))))
+            ((null (cl-mcp-server.remote-config:armable-pin name))
+             (%refuse-arm name (format nil "~A is listed by name only" name)
+                          (format nil "Target ~A is listed by name only, ~
+which is not armable: this session binds names to ports, so a name alone ~
+does not say which image may be changed.~%~%~A"
+                                  name (%pin-advice name host port))))
+            ((%pin-mismatch name host port)
+             (let ((why (%pin-mismatch name host port)))
+               (%refuse-arm name why (format nil "Refused: ~A Not armed."
+                                             why))))
+            ((target-armed-p target)
+             (values target (format nil "~A is already armed." name)))
+            (t
+             (bt:with-lock-held (*lock*)
+               (setf (target-pre-arm-mode target) (target-mode target)
+                     (target-mode target) :developer))
+             (record name :arm "" :armed reason)
+             (values target
+                     (format nil "~A is ARMED for development.~%~%~
+Redefinition, state changes and lifecycle forms are now permitted. It stays ~
+armed until you call remote-disarm.~@[~%~%Reason: ~A~]" name reason))))))))
 
 (defun disarm-target (name)
   "Restore NAME's pre-arm mode. Returns (values target message)."

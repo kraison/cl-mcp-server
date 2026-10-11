@@ -330,9 +330,14 @@ here is closed, so reaching the network would error rather than refuse"
 ;;; Arming
 ;;; ==========================================================================
 
-(defmacro with-armable ((&rest names) &body body)
-  "Run BODY with NAMES as the allowlist."
-  `(let ((cl-mcp-server.remote-config::*armable* (list ,@names)))
+(defmacro with-armable ((&rest entries) &body body)
+  "Run BODY with ENTRIES as the allowlist. A string is pinned to
+127.0.0.1:1, where read-target registers; a list is an entry as written,
+(NAME) for a bare name or (NAME HOST PORT)."
+  `(let ((cl-mcp-server.remote-config::*armable*
+           (mapcar (lambda (entry)
+                     (if (consp entry) entry (list entry "127.0.0.1" 1)))
+                   ',entries)))
      ,@body))
 
 (test arming-is-refused-when-not-allowlisted
@@ -832,3 +837,100 @@ instead of opening a new one"
                 "an open connection is reused")
             (when peer (usocket:socket-close peer))))))
     (cl-mcp-server.remote:close-connection "replaced")))
+
+;;; ==========================================================================
+;;; Pinned names (GH #12)
+;;;
+;;; The allowlist lives outside the session; the binding of a name to an
+;;; endpoint did not, so a session could arm "dev" at prod's port.
+;;; ==========================================================================
+
+(defun %ledger-refusals (name tier)
+  (count-if (lambda (e)
+              (and (eq tier (cl-mcp-server.remote:entry-tier e))
+                   (eq :refused (cl-mcp-server.remote:entry-outcome e))))
+            (cl-mcp-server.remote:ledger-for name)))
+
+(test arming-is-refused-for-a-bare-name
+  "A name alone does not say which image may be changed"
+  (with-armable (("bare-one"))
+    (read-target "bare-one")
+    (multiple-value-bind (target message)
+        (cl-mcp-server.remote:arm-target "bare-one")
+      (is (null target))
+      (is (search "name only" message))
+      (is (search (concatenate 'string "(:armable-targets ((\"bare-one\" "
+                               ":host \"127.0.0.1\" :port 1)))")
+                  message)
+          "the refusal must say how to pin it: ~A" message))
+    (is (eq :read (cl-mcp-server.remote::target-mode
+                   (cl-mcp-server.remote::find-target "bare-one"))))
+    (is (= 1 (%ledger-refusals "bare-one" :arm)))))
+
+(test arming-is-refused-when-the-endpoint-is-not-the-pin
+  "Registration already refuses this; arm checks again in case the pin
+arrived after the registration"
+  (with-armable ()
+    (read-target "pinned-later"))
+  (with-armable (("pinned-later" "127.0.0.1" 4107))
+    (multiple-value-bind (target message)
+        (cl-mcp-server.remote:arm-target "pinned-later")
+      (is (null target))
+      (is (search "pinned to 127.0.0.1:4107" message) "~A" message))
+    (is-false (cl-mcp-server.remote:target-armed-p
+               (cl-mcp-server.remote::find-target "pinned-later")))))
+
+(test arming-a-pinned-name-at-its-endpoint-succeeds
+  (with-armable (("pinned-ok" "127.0.0.1" 4107))
+    (cl-mcp-server.remote:register-target "pinned-ok" "127.0.0.1" 4107
+                                          :mode :read)
+    (is (not (null (cl-mcp-server.remote:arm-target "pinned-ok"))))
+    (is (eq :developer
+            (cl-mcp-server.remote::target-mode
+             (cl-mcp-server.remote::find-target "pinned-ok"))))))
+
+(test connect-refuses-a-pinned-name-at-another-endpoint
+  "The repro in GH #12: \"dev\" registered at the port of another image"
+  (with-armable (("pinned-dev" "127.0.0.1" 4107))
+    (signals cl-mcp-server.remote:pin-mismatch
+      (cl-mcp-server.remote:register-target "pinned-dev" "127.0.0.1" 4108))
+    (signals cl-mcp-server.remote:pin-mismatch
+      (cl-mcp-server.remote:register-target "pinned-dev" "127.0.0.2" 4107))
+    (is (null (cl-mcp-server.remote::find-target "pinned-dev"))
+        "a refused registration must register nothing")
+    (is (= 2 (%ledger-refusals "pinned-dev" :connect)))))
+
+(test a-pinned-target-cannot-be-moved
+  "Re-registering moves a target; a pinned one must stay put"
+  (with-armable (("pinned-stay" "127.0.0.1" 4107))
+    (cl-mcp-server.remote:register-target "pinned-stay" "127.0.0.1" 4107)
+    (signals cl-mcp-server.remote:pin-mismatch
+      (cl-mcp-server.remote:register-target "pinned-stay" "127.0.0.1" 4108))
+    (is (= 4107 (cl-mcp-server.remote:target-port
+                 (cl-mcp-server.remote::find-target "pinned-stay"))))))
+
+(test connect-tool-reports-a-pin-mismatch-as-an-error
+  "Through the tool, without probing: the refusal is the whole answer"
+  (with-armable (("pinned-tool" "127.0.0.1" 4107))
+    (multiple-value-bind (server session) (make-test-server)
+      (declare (ignore session))
+      (let ((handler (cl-mcp.tools:tool-handler
+                      (cl-mcp.tools:get-tool (test-server-registry server)
+                                             "remote-connect"))))
+        (multiple-value-bind (text err)
+            (funcall handler '(("name" . "pinned-tool") ("port" . 4108)))
+          (is-true err)
+          (is (search "pinned to 127.0.0.1:4107" text) "~A" text))))))
+
+(test targets-listing-marks-pinned-names
+  (with-armable ("shown-pinned" ("shown-bare"))
+    (read-target "shown-pinned")
+    (read-target "shown-bare")
+    (multiple-value-bind (server session) (make-test-server)
+      (declare (ignore session))
+      (let* ((text (call-test-tool server "remote-targets" '()))
+             (lines (uiop:split-string text :separator '(#\Newline))))
+        (flet ((line-for (name)
+                 (find-if (lambda (l) (search name l)) lines)))
+          (is (search "[pinned]" (line-for "shown-pinned ")))
+          (is-false (search "[pinned]" (line-for "shown-bare "))))))))

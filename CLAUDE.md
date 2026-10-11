@@ -29,9 +29,10 @@ real audit.
 - what does a value on the service hold? → `remote-inspect` (transcript by
   default, retaining nothing; `registry` adds weak, navigable handles)
 - need to redefine something on a service you own → `remote-arm`, then
-  `remote-disarm` when done. Refused unless the target is allowlisted in
-  `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which
-  live outside the session on purpose. There is no expiry.
+  `remote-disarm` when done. Refused unless the target is allowlisted, and
+  pinned to its host and port, in `~/.config/cl-mcp-server/config.sexp` or
+  `CL_MCP_ARMABLE_TARGETS`, which live outside the session on purpose. A
+  bare name is not armable (#12). There is no expiry.
 - finishing up → `remote-disconnect` with `cleanup`, which sweeps what we left
 
 Invoke the remote-lisp skill: `.claude/skills/remote-lisp/SKILL.md`.
