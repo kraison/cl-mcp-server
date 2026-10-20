@@ -141,10 +141,17 @@ refuse ordinary application code and be turned off"
                (progn (cl-mcp-server.remote:register-target
                        "retired-obs" "127.0.0.1" 1 :mode :observe)
                       nil)
-             (cl-mcp-server.remote:unknown-mode (c) c))))
+             (cl-mcp-server.remote:mode-refused (c) c))))
     (is-true e "registering in :observe must be refused")
     (is (search "GH #14" (princ-to-string e)) "~A" e)
     (is-false (cl-mcp-server.remote::find-target "retired-obs"))))
+
+(test register-target-refuses-developer
+  "Only remote-arm grants :developer, and only for a pinned name"
+  (signals cl-mcp-server.remote:mode-refused
+    (cl-mcp-server.remote:register-target "dev-direct" "127.0.0.1" 1
+                                          :mode :developer))
+  (is-false (cl-mcp-server.remote::find-target "dev-direct")))
 
 (test register-target-defaults-to-read
   (cl-mcp-server.remote:register-target "default-mode" "127.0.0.1" 1)
@@ -578,6 +585,19 @@ target was in fact unarmed -- audit and reality disagreeing."
   (cl-mcp-server.remote:register-target "moved" "127.0.0.1" 4321 :mode :read)
   (let ((tg (cl-mcp-server.remote::find-target "moved")))
     (is (= 4321 (cl-mcp-server.remote:target-port tg)))))
+
+(test reconnecting-cannot-make-developer-the-mode-to-restore
+  "Re-registering an armed target in :developer would have made disarm
+restore :developer, leaving mutation permitted"
+  (with-armable ("poison")
+    (read-target "poison")
+    (cl-mcp-server.remote:arm-target "poison")
+    (signals cl-mcp-server.remote:mode-refused
+      (cl-mcp-server.remote:register-target "poison" "127.0.0.1" 1
+                                            :mode :developer))
+    (cl-mcp-server.remote:disarm-target "poison")
+    (is (eq :read (cl-mcp-server.remote::target-mode
+                   (cl-mcp-server.remote::find-target "poison"))))))
 
 (test disarm-after-reconnect-restores-the-registered-mode
   "The mode passed on reconnect becomes the mode disarm returns to."

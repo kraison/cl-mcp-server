@@ -23,15 +23,22 @@
   (max-print-length 200)
   (max-print-level 5))
 
-(define-condition unknown-mode (error)
-  ((mode :initarg :mode :reader unknown-mode-mode))
-  (:report (lambda (c s)
-             (let ((mode (unknown-mode-mode c)))
-               (format s "Unknown mode ~S; the modes are ~{~S~^, ~}.~:[~; ~
+(define-condition mode-refused (error)
+  ((mode :initarg :mode :reader mode-refused-mode)
+   (detail :initarg :detail :reader mode-refused-detail))
+  (:report (lambda (c s) (write-string (mode-refused-detail c) s))))
+
+(defun %mode-refusal (mode)
+  "Why a target may not register in MODE, or NIL. Only ARM-TARGET grants
+:DEVELOPER, after checking the pinned allowlist (GH #12)."
+  (cond ((eq mode :developer)
+         (format nil "Mode :developer is granted only by remote-arm, ~
+which checks the armable-targets allowlist."))
+        ((not (assoc mode *mode-permissions*))
+         (format nil "Unknown mode ~S; targets register in :read.~:[~; ~
 Observe mode was retired: it permitted nothing (GH #14).~]"
-                       mode (mapcar #'car *mode-permissions*)
-                       (and (typep mode '(or string symbol))
-                            (string-equal mode "observe")))))))
+                 mode (and (typep mode '(or string symbol))
+                           (string-equal mode "observe"))))))
 
 (define-condition pin-mismatch (error)
   ((name :initarg :name :reader pin-mismatch-name)
@@ -60,12 +67,13 @@ unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it.
 
 Signals PIN-MISMATCH, registering nothing, when NAME is pinned elsewhere,
-and UNKNOWN-MODE when MODE is not in *MODE-PERMISSIONS*."
+and MODE-REFUSED for :DEVELOPER or a mode not in *MODE-PERMISSIONS*."
   ;; The MCP JSON layer hands over fill-pointered strings, and usocket's
   ;; SBCL path declares SIMPLE-STRING for the host -- store it simple or
   ;; every registry connect dies with a masked TYPE-ERROR (GH #7).
-  (unless (assoc mode *mode-permissions*)
-    (error 'unknown-mode :mode mode))
+  (let ((refusal (%mode-refusal mode)))
+    (when refusal
+      (error 'mode-refused :mode mode :detail refusal)))
   (let ((stale nil)
         (host (coerce host 'simple-string)))
     (let ((mismatch (%pin-mismatch name host port)))

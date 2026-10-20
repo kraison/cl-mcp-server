@@ -375,7 +375,10 @@ nothing at all, not even `remote-connect`'s reachability check. Asking for
 `observe` (or any mode but `read`) through `remote-connect`, or for any
 mode outside the table through `register-target`, is now refused with a
 message. It is not mapped to `read`, which would widen what the caller
-asked for. `register-target` defaults to `:read`, like the tool.
+asked for. `register-target` defaults to `:read`, like the tool, and
+refuses `:developer`: only `remote-arm` grants it. Before, registering or
+reconnecting a target in `:developer` skipped the allowlist, and a
+reconnect could make disarm restore `:developer`.
 
 **`memory-report` no longer fails at random after a GC** (#13). SBCL's
 `ROOM` walks code space without the allocator lock, and fails an AVER

@@ -354,7 +354,7 @@
    #:disarm-target
    #:target-armed-p
    #:pin-mismatch
-   #:unknown-mode))
+   #:mode-refused))
 
 (defpackage #:cl-mcp-server.remote-inspect
   (:use #:cl)
