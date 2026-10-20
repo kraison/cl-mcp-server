@@ -313,7 +313,8 @@
    #:swank-connection-lost
    #:connection-state
    #:*call-timeout*
-   #:*connect-timeout*))
+   #:*connect-timeout*
+   #:*stall-timeout*))
 
 (defpackage #:cl-mcp-server.remote-config
   (:use #:cl)

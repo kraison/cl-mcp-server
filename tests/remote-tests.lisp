@@ -838,6 +838,41 @@ instead of opening a new one"
             (when peer (usocket:socket-close peer))))))
     (cl-mcp-server.remote:close-connection "replaced")))
 
+(defun %stalled-read (prefix)
+  "Read a reply from a peer that sends PREFIX, then nothing until we hang
+up or four seconds pass. Returns (values condition seconds)."
+  (with-listener (server port)
+    (let* ((conn (let ((cl-mcp-server.swank-protocol:*stall-timeout* 1))
+                   (cl-mcp-server.swank-protocol:connect "127.0.0.1" port)))
+           (peer (%accept server))
+           (staller (bordeaux-threads:make-thread
+                     (lambda ()
+                       (%write-raw peer prefix)
+                       (usocket:wait-for-input peer :timeout 4)
+                       (usocket:socket-close peer))))
+           (start (get-internal-real-time)))
+      (unwind-protect
+           (values (handler-case
+                       (progn (cl-mcp-server.swank-protocol::%read-message
+                               conn :timeout 5)
+                              nil)
+                     (error (e) e))
+                   (/ (- (get-internal-real-time) start)
+                      internal-time-units-per-second))
+        (cl-mcp-server.swank-protocol:disconnect conn)
+        (bordeaux-threads:join-thread staller)))))
+
+(test a-stalled-frame-is-a-lost-connection
+  "A peer that sends part of a frame and stops is given up on after
+*STALL-TIMEOUT*. The bound used to be a usocket default (GH #15)."
+  (dolist (prefix '("000" "000010("))
+    (multiple-value-bind (condition seconds) (%stalled-read prefix)
+      (is (typep condition
+                 'cl-mcp-server.swank-protocol:swank-connection-lost)
+          "~S: got ~A" prefix condition)
+      (is (< seconds 3)
+          "~S: took ~,1Fs; the stall bound was 1s" prefix seconds))))
+
 ;;; ==========================================================================
 ;;; Pinned names (GH #12)
 ;;;

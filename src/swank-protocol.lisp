@@ -18,6 +18,9 @@
 (defparameter *call-timeout* 30
   "Seconds to wait for a reply. A remote thread we cannot reach is worse
 than a slow one, so this is deliberately short.")
+(defparameter *stall-timeout* 10
+  "Seconds a read may wait for the rest of a frame before the connection
+is lost. Read at connect. Writes are not bounded (GH #15).")
 
 (define-condition swank-error (error)
   ((detail :initarg :detail :reader swank-error-detail))
@@ -57,7 +60,9 @@ call to this target opens a new one." (swank-error-detail c)))))
                       (coerce host 'simple-string) port
                       ;; Octets: the frame header counts them (GH #11).
                       :element-type '(unsigned-byte 8)
-                      :timeout *connect-timeout*))
+                      :timeout *connect-timeout*
+                      ;; Bounds a frame that stops mid-way (GH #15).
+                      :read-timeout *stall-timeout*))
              (stream (usocket:socket-stream socket)))
         (make-swank-connection :socket socket :stream stream))
     (error (e)

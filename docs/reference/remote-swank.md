@@ -170,6 +170,13 @@ in one of them your form may have run:
   call opens a new one. The form may or may not have run: check before
   re-sending anything that is not idempotent.
 
+Two timeouts apply while reading a reply. `*call-timeout*` (30 s) is how
+long a call waits for the reply to start. `*stall-timeout*` (10 s) is how
+long a read waits for the rest of a frame. A frame that stops arriving
+partway, as on a half-dead network path, is a lost connection once
+`*stall-timeout*` passes with no new octets (GH #15). Sending has no such
+bound, but a request is far smaller than the kernel's socket buffers.
+
 Frames are counted in UTF-8 octets, as SWANK counts them, so forms and
 values with non-ASCII text round-trip (GH #11).
 
