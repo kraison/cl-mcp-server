@@ -18,10 +18,20 @@
 
 (defstruct (target (:conc-name target-))
   name host port
-  (mode :observe)           ; :observe | :read | :developer
+  (mode :read)              ; a key of *mode-permissions*
   (pre-arm-mode nil)        ; mode to restore on disarm; NIL when unarmed
   (max-print-length 200)
   (max-print-level 5))
+
+(define-condition unknown-mode (error)
+  ((mode :initarg :mode :reader unknown-mode-mode))
+  (:report (lambda (c s)
+             (let ((mode (unknown-mode-mode c)))
+               (format s "Unknown mode ~S; the modes are ~{~S~^, ~}.~:[~; ~
+Observe mode was retired: it permitted nothing (GH #14).~]"
+                       mode (mapcar #'car *mode-permissions*)
+                       (and (typep mode '(or string symbol))
+                            (string-equal mode "observe")))))))
 
 (define-condition pin-mismatch (error)
   ((name :initarg :name :reader pin-mismatch-name)
@@ -38,7 +48,7 @@ one endpoint; the session cannot rebind it (GH #12)."
       (format nil "~A is pinned to ~A:~D in the armable-targets config, ~
 not ~A:~D." name pin-host pin-port host port))))
 
-(defun register-target (name host port &key (mode :observe)
+(defun register-target (name host port &key (mode :read)
                                             (max-print-length 200))
   "Register a named target. Names, not raw host/port, are what tools accept:
 you cannot typo a port into production.
@@ -49,10 +59,13 @@ the ledger showing an :arm with no :disarm while the target was in fact
 unarmed -- the audit and reality disagreeing in the one artifact meant to
 settle it.
 
-Signals PIN-MISMATCH, registering nothing, when NAME is pinned elsewhere."
+Signals PIN-MISMATCH, registering nothing, when NAME is pinned elsewhere,
+and UNKNOWN-MODE when MODE is not in *MODE-PERMISSIONS*."
   ;; The MCP JSON layer hands over fill-pointered strings, and usocket's
   ;; SBCL path declares SIMPLE-STRING for the host -- store it simple or
   ;; every registry connect dies with a masked TYPE-ERROR (GH #7).
+  (unless (assoc mode *mode-permissions*)
+    (error 'unknown-mode :mode mode))
   (let ((stale nil)
         (host (coerce host 'simple-string)))
     (let ((mismatch (%pin-mismatch name host port)))
@@ -103,7 +116,6 @@ image. Register this one under another name." mismatch))))
 ;;; ==========================================================================
 ;;; Tiering
 ;;;
-;;; T0 observe   metadata: arglists, docs, apropos, source location
 ;;; T1 read      evaluates a form that reads state; risk is cost, not damage
 ;;; T2 redefine  defun/defmethod: recoverable by redefining back
 ;;; T2 state     setf/clrhash/load: usually no inverse
@@ -195,9 +207,8 @@ DELETE-PACKAGE are lifecycle but leave the connection usable.")
   (or (alphanumericp ch) (find ch "-*+/<>=?!%_.")))
 
 (defparameter *mode-permissions*
-  '((:observe    . (:observe))
-    (:read       . (:observe :read :inspect-registry))
-    (:developer  . (:observe :read :inspect-registry
+  '((:read       . (:read :inspect-registry))
+    (:developer  . (:read :inspect-registry
                     :redefine :state :lifecycle)))
   "Mode to permitted tiers. Modes are roles, not rungs: a future
 :prod-maintenance clears a cache but must never redefine, so it is not a

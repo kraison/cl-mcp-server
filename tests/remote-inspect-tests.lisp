@@ -105,11 +105,6 @@ escaping and survives the round trip -- this cost a debug cycle once."
   (is-true (cl-mcp-server.remote::tier-allowed-p
             (target-in :read) :inspect-registry)))
 
-(test inspect-registry-refused-in-observe-mode
-  "Observe mode promises metadata only; retaining handles is more than that"
-  (is-false (cl-mcp-server.remote::tier-allowed-p
-             (target-in :observe) :inspect-registry)))
-
 (test inspect-registry-does-not-unlock-lifecycle
   "The override must widen exactly one tier, not open the gate"
   (is-false (cl-mcp-server.remote::tier-allowed-p

@@ -35,7 +35,6 @@ typo'd into production.
 
 | Tier | Examples | Default |
 |------|----------|---------|
-| observe | arglists, docs, apropos, source location | allowed |
 | read | evaluating a form that reads state | allowed |
 | redefine | `defun`, `defmethod` | **refused** |
 | state | `setf`, `clrhash`, `load`, `defvar`, and destructive CL like `sort`, `nreverse`, `delete` | **refused** |

@@ -12,6 +12,14 @@
 (defparameter *read-only-note*
   "Mutating and lifecycle forms will be refused.")
 
+(defun %connect-mode-refusal (mode)
+  "Why remote-connect will not register a target in MODE."
+  (format nil "Refused: mode ~S. Targets connect in read mode; remote-arm ~
+permits more on an allowlisted, pinned target.~:[~; Observe mode was ~
+retired: it permitted nothing, not even this tool's reachability check ~
+(GH #14).~]"
+          mode (equal mode "observe")))
+
 (defun %probe-new-target (name host port mode)
   "remote-connect's answer once NAME is registered: is it reachable?"
   (let ((probe (cl-mcp-server.remote:remote-eval
@@ -412,20 +420,20 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
   ;; ========================================================================
   ;; Remote SWANK: read-only access to live services
   ;;
-  ;; A live service is not a dev image. Default mode is observe/read; nothing
-  ;; that mutates runs without the target being configured for it.
+  ;; A live service is not a dev image. Targets connect in read mode;
+  ;; nothing that mutates runs unless the target is armed.
   ;; ========================================================================
 
   (cl-mcp:register-tool server "remote-connect"
    :description (format nil "Register a named SWANK target for a running Lisp ~
                             service, and verify it is reachable. Targets are ~
                             addressed BY NAME everywhere else, so a port ~
-                            cannot be typo'd into production. `mode` defaults ~
-                            to \"read\" (evaluate forms that read state); ~
-                            \"observe\" allows metadata queries only. ~
-                            Mutating and lifecycle forms are refused in both ~
+                            cannot be typo'd into production. Targets ~
+                            connect in read mode: forms that read state run, ~
+                            while mutating and lifecycle forms are refused ~
                             -- deliberately, since a mistake against a live ~
-                            service is not undoable.")
+                            service is not undoable. remote-arm permits them ~
+                            on an allowlisted, pinned target.")
    :schema `(("type" . "object")
              ("required" . ("name" "port"))
              ("properties"
@@ -439,24 +447,26 @@ Returns the matching keyword or nil. Comparison is case-insensitive."
                   . (("type" . "integer") ("description" . "SWANK port")))
                  ("mode"
                   . (("type" . "string")
-                     ("description" . "observe | read (default: read)"))))))
+                     ("description"
+                      . "Only \"read\"; remote-arm permits more"))))))
    :handler (lambda (args)
               (flet ((arg (k) (cdr (assoc k args :test #'string=))))
                 (let* ((name (arg "name"))
                        (host (or (arg "host") "127.0.0.1"))
                        (port (arg "port"))
-                       (mode (cond ((equal (arg "mode") "observe") :observe)
-                                   (t :read)))
+                       (mode (arg "mode"))
                        (refusal
-                         (handler-case
-                             (progn (cl-mcp-server.remote:register-target
-                                     name host port :mode mode)
-                                    nil)
-                           (cl-mcp-server.remote:pin-mismatch (e)
-                             (princ-to-string e)))))
+                         (if (member mode '(nil "read") :test #'equal)
+                             (handler-case
+                                 (progn (cl-mcp-server.remote:register-target
+                                         name host port :mode :read)
+                                        nil)
+                               (cl-mcp-server.remote:pin-mismatch (e)
+                                 (princ-to-string e)))
+                             (%connect-mode-refusal mode))))
                   (if refusal
                       (values refusal t)
-                      (%probe-new-target name host port mode))))))
+                      (%probe-new-target name host port :read))))))
 
   (cl-mcp:register-tool server "remote-eval"
    :description (format nil "Evaluate a form on a named remote target. The ~

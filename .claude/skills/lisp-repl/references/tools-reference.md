@@ -124,10 +124,11 @@ addressed by NAME everywhere else, so a port cannot be typo'd into prod.
 | `name` | string | yes | Short name, e.g. `"mine-action"` |
 | `port` | integer | yes | SWANK port |
 | `host` | string | no | Default `127.0.0.1` |
-| `mode` | string | no | `observe` or `read` (default `read`) |
+| `mode` | string | no | Only `read`, the default; anything else is refused |
 
-Neither mode permits mutation. `remote-arm` puts a target into `developer`
-mode, which does — see remote-arm / remote-disarm below.
+Read mode does not permit mutation. `remote-arm` puts a target into
+`developer` mode, which does — see remote-arm / remote-disarm below.
+`observe` mode was retired (GH #14).
 
 #### remote-eval
 
@@ -173,7 +174,7 @@ collected handle says so instead of resurrecting the object.
 
 Registry mode carries its own `:inspect-registry` tier (it defines a
 variable and bumps a counter), recorded in the ledger under that name. It is
-allowed wherever `read` is, but not in `observe` mode.
+allowed wherever `read` is.
 
 Prefer transcript. Use registry only when you need to walk into something.
 

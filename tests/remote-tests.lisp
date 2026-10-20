@@ -135,11 +135,21 @@ refuse ordinary application code and be turned off"
 (defun make-test-target (mode)
   (cl-mcp-server.remote::make-target :name "t" :host "h" :port 1 :mode mode))
 
-(test observe-mode-permits-only-observe
-  (let ((tg (make-test-target :observe)))
-    (is-true (cl-mcp-server.remote::tier-allowed-p tg :observe))
-    (is-false (cl-mcp-server.remote::tier-allowed-p tg :read))
-    (is-false (cl-mcp-server.remote::tier-allowed-p tg :state))))
+(test observe-mode-is-retired
+  "Observe permitted nothing, not even the connect probe (GH #14)"
+  (let ((e (handler-case
+               (progn (cl-mcp-server.remote:register-target
+                       "retired-obs" "127.0.0.1" 1 :mode :observe)
+                      nil)
+             (cl-mcp-server.remote:unknown-mode (c) c))))
+    (is-true e "registering in :observe must be refused")
+    (is (search "GH #14" (princ-to-string e)) "~A" e)
+    (is-false (cl-mcp-server.remote::find-target "retired-obs"))))
+
+(test register-target-defaults-to-read
+  (cl-mcp-server.remote:register-target "default-mode" "127.0.0.1" 1)
+  (is (eq :read (cl-mcp-server.remote::target-mode
+                 (cl-mcp-server.remote::find-target "default-mode")))))
 
 (test read-mode-permits-read-not-mutate
   (let ((tg (make-test-target :read)))
@@ -149,7 +159,7 @@ refuse ordinary application code and be turned off"
 (test lifecycle-refused-below-developer
   "Lifecycle is permitted in :developer -- restarting your own dev image is
 ordinary work. Below developer it is always refused."
-  (dolist (mode '(:observe :read))
+  (dolist (mode '(:read))
     (is-false (cl-mcp-server.remote::tier-allowed-p
                (make-test-target mode) :lifecycle)
               "lifecycle must be refused in ~A mode" mode)))
@@ -274,9 +284,7 @@ here is closed, so reaching the network would error rather than refuse"
 
 (test lifecycle-still-refused-below-developer
   (is-false (cl-mcp-server.remote::tier-allowed-p
-             (mode-target :read) :lifecycle))
-  (is-false (cl-mcp-server.remote::tier-allowed-p
-             (mode-target :observe) :lifecycle)))
+             (mode-target :read) :lifecycle)))
 
 (test unknown-mode-permits-nothing
   "Default-deny: a typo in a mode name must not open a gate"
@@ -357,16 +365,25 @@ here is closed, so reaching the network would error rather than refuse"
             (cl-mcp-server.remote::target-mode
              (cl-mcp-server.remote::find-target "armable-one"))))))
 
+(defmacro with-test-mode ((mode &rest tiers) &body body)
+  "Run BODY with MODE in the mode table, permitting TIERS. It is not :read,
+so a disarm that always restores :read cannot pass for one that restores
+the pre-arm mode."
+  `(let ((cl-mcp-server.remote::*mode-permissions*
+           (acons ,mode ',tiers cl-mcp-server.remote::*mode-permissions*)))
+     ,@body))
+
 (test disarm-restores-the-pre-arm-mode
-  "A target registered in :observe must not come back as :read -- that is
-privilege escalation disguised as cleanup"
-  (with-armable ("obs")
-    (cl-mcp-server.remote:register-target "obs" "127.0.0.1" 1 :mode :observe)
-    (cl-mcp-server.remote:arm-target "obs")
-    (cl-mcp-server.remote:disarm-target "obs")
-    (is (eq :observe
-            (cl-mcp-server.remote::target-mode
-             (cl-mcp-server.remote::find-target "obs"))))))
+  "A target registered in a narrower mode must not come back as :read --
+that is privilege escalation disguised as cleanup"
+  (with-test-mode (:audit)
+    (with-armable ("obs")
+      (cl-mcp-server.remote:register-target "obs" "127.0.0.1" 1 :mode :audit)
+      (cl-mcp-server.remote:arm-target "obs")
+      (cl-mcp-server.remote:disarm-target "obs")
+      (is (eq :audit
+              (cl-mcp-server.remote::target-mode
+               (cl-mcp-server.remote::find-target "obs")))))))
 
 (test disarm-restores-read-for-a-read-target
   (with-armable ("rd")
@@ -380,15 +397,16 @@ privilege escalation disguised as cleanup"
 (test arming-twice-does-not-lose-the-pre-arm-mode
   "Idempotent: a second arm must not record :developer as the mode to
 return to"
-  (with-armable ("twice")
-    (cl-mcp-server.remote:register-target "twice" "127.0.0.1" 1
-                                          :mode :observe)
-    (cl-mcp-server.remote:arm-target "twice")
-    (cl-mcp-server.remote:arm-target "twice")
-    (cl-mcp-server.remote:disarm-target "twice")
-    (is (eq :observe
-            (cl-mcp-server.remote::target-mode
-             (cl-mcp-server.remote::find-target "twice"))))))
+  (with-test-mode (:audit)
+    (with-armable ("twice")
+      (cl-mcp-server.remote:register-target "twice" "127.0.0.1" 1
+                                            :mode :audit)
+      (cl-mcp-server.remote:arm-target "twice")
+      (cl-mcp-server.remote:arm-target "twice")
+      (cl-mcp-server.remote:disarm-target "twice")
+      (is (eq :audit
+              (cl-mcp-server.remote::target-mode
+               (cl-mcp-server.remote::find-target "twice")))))))
 
 (test disarming-an-unarmed-target-is-harmless
   (with-armable ("calm")
@@ -563,14 +581,16 @@ target was in fact unarmed -- audit and reality disagreeing."
 
 (test disarm-after-reconnect-restores-the-registered-mode
   "The mode passed on reconnect becomes the mode disarm returns to."
-  (with-armable ("rejoin")
-    (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1
-                                          :mode :observe)
-    (cl-mcp-server.remote:arm-target "rejoin")
-    (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1 :mode :read)
-    (cl-mcp-server.remote:disarm-target "rejoin")
-    (is (eq :read (cl-mcp-server.remote::target-mode
-                   (cl-mcp-server.remote::find-target "rejoin"))))))
+  (with-test-mode (:audit)
+    (with-armable ("rejoin")
+      (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1
+                                            :mode :audit)
+      (cl-mcp-server.remote:arm-target "rejoin")
+      (cl-mcp-server.remote:register-target "rejoin" "127.0.0.1" 1
+                                            :mode :read)
+      (cl-mcp-server.remote:disarm-target "rejoin")
+      (is (eq :read (cl-mcp-server.remote::target-mode
+                     (cl-mcp-server.remote::find-target "rejoin")))))))
 
 (test termination-is-probed-not-inferred-from-the-form
   "A form that merely MENTIONS quit can fail before reaching it. Inferring
@@ -973,6 +993,33 @@ arrived after the registration"
             (funcall handler '(("name" . "pinned-tool") ("port" . 4108)))
           (is-true err)
           (is (search "pinned to 127.0.0.1:4107" text) "~A" text))))))
+
+(defun %connect-tool (args)
+  "Call the remote-connect tool's handler with ARGS: (values text error-p)."
+  (multiple-value-bind (server session) (make-test-server)
+    (declare (ignore session))
+    (funcall (cl-mcp.tools:tool-handler
+              (cl-mcp.tools:get-tool (test-server-registry server)
+                                     "remote-connect"))
+             args)))
+
+(test connect-tool-refuses-observe
+  "Mapped quietly to read, it would widen what the caller asked for"
+  (multiple-value-bind (text err)
+      (%connect-tool '(("name" . "tool-obs") ("port" . 1)
+                       ("mode" . "observe")))
+    (is-true err)
+    (is (search "GH #14" text) "~A" text)
+    (is-false (cl-mcp-server.remote::find-target "tool-obs"))))
+
+(test connect-tool-cannot-ask-for-developer
+  "Only remote-arm reaches developer, and only for a pinned name"
+  (multiple-value-bind (text err)
+      (%connect-tool '(("name" . "tool-dev") ("port" . 1)
+                       ("mode" . "developer")))
+    (is-true err)
+    (is (search "remote-arm" text) "~A" text)
+    (is-false (cl-mcp-server.remote::find-target "tool-dev"))))
 
 (test targets-listing-marks-pinned-names
   (with-armable ("shown-pinned" ("shown-bare"))

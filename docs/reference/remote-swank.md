@@ -117,7 +117,7 @@ Register a named target and verify it is reachable.
 | name | string | Yes | Short name used everywhere else |
 | port | integer | Yes | SWANK port |
 | host | string | No | Default `127.0.0.1` |
-| mode | string | No | `observe` or `read` (default: `read`) |
+| mode | string | No | Only `read`, the default; anything else is refused |
 
 ```
 Target scratch registered: 127.0.0.1:4010, read mode.
@@ -126,9 +126,15 @@ Reachable; remote SBCL "2.6.6".
 Mutating and lifecycle forms will be refused.
 ```
 
-Modes: `observe` permits metadata queries only; `read` also permits forms
-that read state. **Neither permits mutation** — that is deliberate, and
-there is currently no mode that does.
+Targets connect in `read` mode: forms that read state run, and mutating
+and lifecycle forms are refused. Only `remote-arm` goes further, putting an
+allowlisted, pinned target into `developer` mode (see Mutate mode below).
+
+There used to be an `observe` mode, meant for metadata queries only. No
+tool ever sent a query it permitted, so nothing could run in it, not even
+the reachability check. It was retired, and asking for it is refused
+rather than quietly treated as `read`, which would widen what the caller
+asked for (GH #14).
 
 ## remote-eval
 
@@ -245,8 +251,7 @@ you actually need to walk into something.
 Registry mode genuinely mutates the target — it defines a variable and
 maintains a counter. Rather than masquerade as a read, those forms carry
 their own `:inspect-registry` tier, which the ledger records under that name
-so the exception is visible. It is permitted wherever `read` is, but **not**
-in `observe` mode, whose promise is metadata only.
+so the exception is visible. It is permitted wherever `read` is.
 
 ## remote-inspect-clear
 
@@ -343,7 +348,8 @@ them.
 
 ## Operational advice
 
-- Start in `observe` mode against anything you care about.
+- Keep anything you care about off the armable allowlist: a name that is
+  not on it can never be armed, whatever a session does.
 - Read `remote-ledger` before trusting a session's work, and after any
   incident.
 - Prefer narrow forms. `(hash-table-count *cache*)` is a better question
@@ -451,17 +457,17 @@ of the socket.
 
 ### remote-disarm
 
-Restores the mode the target had **before** arming — not `:read`. A target
-registered in `:observe` that came back as `:read` would be more permissive
-than it started, which is privilege escalation disguised as cleanup.
+Restores the mode the target had **before** arming, not a fixed `:read`.
+`read` is the only mode a target connects in today, but once a narrower
+role exists, a target that came back as `:read` would be more permissive
+than it started: privilege escalation disguised as cleanup.
 
 ### Modes are roles, not rungs
 
-| mode | observe | read | inspect-registry | redefine | state | lifecycle |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|
-| `observe` | ● | | | | | |
-| `read` | ● | ● | ● | | | |
-| `developer` | ● | ● | ● | ● | ● | ● |
+| mode | read | inspect-registry | redefine | state | lifecycle |
+|---|:-:|:-:|:-:|:-:|:-:|
+| `read` | ● | ● | | | |
+| `developer` | ● | ● | ● | ● | ● |
 
 Permission is a table, not a ladder, because roles do not nest: a future
 `prod-maintenance` would clear a cache but never `defun`, so it is not a

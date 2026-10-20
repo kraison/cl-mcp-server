@@ -369,6 +369,14 @@ MIT License
 
 ### Unreleased
 
+**Observe mode is retired; `read` is the lowest mode** (#14). Observe was
+meant for metadata queries, but no tool ever sent one, so it permitted
+nothing at all, not even `remote-connect`'s reachability check. Asking for
+`observe` (or any mode but `read`) through `remote-connect`, or for any
+mode outside the table through `register-target`, is now refused with a
+message. It is not mapped to `read`, which would widen what the caller
+asked for. `register-target` defaults to `:read`, like the tool.
+
 **`memory-report` no longer fails at random after a GC** (#13). SBCL's
 `ROOM` walks code space without the allocator lock, and fails an AVER
 when the finalizer thread is freeing dead code at the same moment, as it
@@ -505,7 +513,7 @@ often than "when warnings are present" suggests.
 
 **Remote SWANK (9 tools)**: read-only access to a running Lisp service
 - `remote-connect` / `remote-eval` / `remote-targets` / `remote-disconnect` — named targets, so a port cannot be typo'd into production
-- Forms are classified by textual inspection into observe / read / redefine / state / lifecycle tiers, and refused unless the target's mode permits the tier
+- Forms are classified by textual inspection into read / redefine / state / lifecycle tiers, and refused unless the target's mode permits the tier
 - `remote-ledger` records every form sent, refusals included, with timestamps
 - `remote-inspect` / `remote-inspect-clear` — inspect a value on the service, as a transcript retaining nothing or via weak, navigable handles
 - `remote-arm` / `remote-disarm` — permit mutation on a target, then revoke it. Refused unless the target is allowlisted, and pinned to its host and port, in `~/.config/cl-mcp-server/config.sexp` or `CL_MCP_ARMABLE_TARGETS`, which live outside the session on purpose
