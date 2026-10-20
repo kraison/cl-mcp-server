@@ -369,6 +369,30 @@ MIT License
 
 ### Unreleased
 
+**`memory-report` no longer fails at random after a GC** (#13). SBCL's
+`ROOM` walks code space without the allocator lock, and fails an AVER
+when the finalizer thread is freeing dead code at the same moment, as it
+does after every GC. The walk only reads, so the report now retries it a
+few times, then lets a persistent failure through.
+
+**A frame that stops arriving is bounded by `*stall-timeout*`** (#15),
+10 s by default. The same bound held before, but only because usocket
+defaults the read timeout to the connect timeout.
+
+**Armable names are pinned to a host and port** (#12). `remote-arm`
+trusted a target's name, yet the session itself binds names to
+endpoints. An allowlist entry is now `("dev" :host "127.0.0.1" :port
+4107)`, or `dev@127.0.0.1:4107` in `CL_MCP_ARMABLE_TARGETS`.
+`remote-connect` refuses a pinned name at any other endpoint, and **a
+bare name can no longer be armed: existing configs must pin their
+names.** See [docs/reference/remote-swank.md](docs/reference/remote-swank.md).
+
+**SWANK frames are counted in octets, and dropped connections recover**
+(#11). A form or value with non-ASCII text hung the call and killed the
+connection: the frame header counted characters, but SWANK counts UTF-8
+octets. A connection the service closes, resets or garbles mid-call is
+now reported as `connection lost`, and the next call opens a new one.
+
 **Blackboard tools, switched on by the config file.** When
 `~/.config/cl-mcp-server/config.sexp` carries a `:blackboard` target
 beside `:armable-targets`, `start` loads `blackboard/mcp` and registers
