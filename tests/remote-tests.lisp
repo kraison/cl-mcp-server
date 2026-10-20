@@ -873,6 +873,23 @@ up or four seconds pass. Returns (values condition seconds)."
       (is (< seconds 3)
           "~S: took ~,1Fs; the stall bound was 1s" prefix seconds))))
 
+(test a-reply-slower-than-the-stall-bound-still-arrives
+  "*STALL-TIMEOUT* bounds a frame already started. The wait for a reply
+to start is *CALL-TIMEOUT*'s, so a slow form is not a stall (GH #15)."
+  (with-listener (server port)
+    (let* ((conn (let ((cl-mcp-server.swank-protocol:*stall-timeout* 1))
+                   (cl-mcp-server.swank-protocol:connect "127.0.0.1" port)))
+           (peer (%accept server))
+           (replier (bordeaux-threads:make-thread
+                     (lambda () (sleep 2) (%write-raw peer "000003(1)")))))
+      (unwind-protect
+           (is (equal "(1)"
+                      (cl-mcp-server.swank-protocol::%read-message
+                       conn :timeout 5)))
+        (bordeaux-threads:join-thread replier)
+        (usocket:socket-close peer)
+        (cl-mcp-server.swank-protocol:disconnect conn)))))
+
 ;;; ==========================================================================
 ;;; Pinned names (GH #12)
 ;;;
