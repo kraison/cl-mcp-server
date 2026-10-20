@@ -170,14 +170,25 @@ ACTION can be:
 ;;; Memory Analysis
 ;;; ==========================================================================
 
+(defun %room-report (verbosity)
+  "ROOM's output as a string. SBCL's ROOM walks code space without the
+allocator lock, so it fails an AVER if the finalizer thread is freeing
+code after a GC. The walk only reads: try again, then let it fail
+(GH #13)."
+  (flet ((room-string ()
+           (with-output-to-string (*standard-output*) (room verbosity))))
+    (loop repeat 4
+          do (handler-case (return-from %room-report (room-string))
+               (sb-int:bug () (sleep 0.02))))
+    (room-string)))
+
 (defun introspect-memory-report (&key (verbosity :default) gc-first)
   "Get memory usage report.
 VERBOSITY can be :DEFAULT, T (detailed), or NIL (minimal).
 If GC-FIRST is true, run garbage collection before reporting."
   (when gc-first
     (sb-ext:gc :full t))
-  (let ((room-output (with-output-to-string (*standard-output*)
-                       (room verbosity)))
+  (let ((room-output (%room-report verbosity))
         (gc-run-time sb-ext:*gc-run-time*)
         (gc-real-time (if (boundp 'sb-ext:*gc-real-time*)
                           (symbol-value 'sb-ext:*gc-real-time*)

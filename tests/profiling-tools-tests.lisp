@@ -110,6 +110,37 @@
                  :gc-first t)))
     (is (getf result :gc-triggered))))
 
+(test memory-report-survives-gc-of-compiled-code
+  "SBCL's ROOM walks code space without the allocator lock. After a GC
+the finalizer thread frees dead code under that lock, and a walk that
+overlaps it fails an AVER. 2000 dead functions lost the race 16 times
+in 16 before the retry (GH #13)."
+  (let ((failures 0))
+    (dotimes (round 2)
+      (dotimes (i 2000)
+        (compile nil `(lambda (x) (+ x ,i (length (list x ,i))))))
+      (handler-case (cl-mcp-server.profiling-tools:introspect-memory-report
+                     :gc-first t)
+        (sb-int:bug () (incf failures))))
+    (is (zerop failures) "~D of 2 reports failed an AVER" failures)))
+
+(defun %with-room-always-failing (thunk)
+  "THUNK's value, or the condition it signalled, while ROOM always fails."
+  (sb-int:encapsulate 'room 'gh-13
+                      (lambda (f &rest args)
+                        (declare (ignore f args))
+                        (sb-int:bug "simulated: ROOM keeps failing")))
+  (unwind-protect (handler-case (funcall thunk) (error (e) e))
+    (sb-int:unencapsulate 'room 'gh-13)))
+
+(test memory-report-surfaces-a-room-that-keeps-failing
+  "The retry must give up and report, not return an empty report
+(RULE-007)."
+  (is (typep (%with-room-always-failing
+              (lambda ()
+                (cl-mcp-server.profiling-tools:introspect-memory-report)))
+             'sb-int:bug)))
+
 (test format-memory-report-output
   "format-memory-report produces readable output"
   (let* ((result (cl-mcp-server.profiling-tools:introspect-memory-report))
